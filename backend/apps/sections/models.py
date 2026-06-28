@@ -1,6 +1,6 @@
 from django.db import models
 
-from apps.base import TimeStampedModel
+from apps.core.mixins import TimeStampedModel
 
 
 class Section(TimeStampedModel):
@@ -12,9 +12,10 @@ class Section(TimeStampedModel):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
+    order = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
-        ordering = ["property", "name"]
+        ordering = ["property", "order", "name"]
         constraints = [
             models.UniqueConstraint(
                 fields=["property", "name"],

@@ -1,6 +1,6 @@
 from django.db import models
 
-from apps.base import TimeStampedModel
+from apps.core.mixins import TimeStampedModel
 
 
 class Property(TimeStampedModel):

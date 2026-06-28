@@ -2,7 +2,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 
-from apps.choices import BillingMode
+from apps.core.constants import BillingMode
 
 
 class Occupancy(models.Model):
@@ -22,6 +22,13 @@ class Occupancy(models.Model):
         max_length=10,
         choices=BillingMode.choices,
         default=BillingMode.SEMESTER,
+    )
+    agreed_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Price snapshotted at time of assignment",
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

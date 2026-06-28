@@ -1,6 +1,6 @@
 from django.db import models
 
-from apps.base import TimeStampedModel
+from apps.core.mixins import TimeStampedModel
 
 
 class Student(TimeStampedModel):
@@ -13,6 +13,12 @@ class Student(TimeStampedModel):
         unique=True,
         blank=True,
         help_text="External identifier from the educational institution",
+    )
+    national_id = models.CharField(
+        max_length=50,
+        unique=True,
+        blank=True,
+        help_text="Government-issued national identification number",
     )
     is_active = models.BooleanField(default=True)
 

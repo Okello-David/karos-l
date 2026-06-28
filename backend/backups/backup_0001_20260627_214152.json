@@ -1,0 +1,28 @@
+{
+  "backup_id": 1,
+  "metadata": {
+    "record_counts": {
+      "properties.Property": 0,
+      "sections.Section": 0,
+      "units.Unit": 0,
+      "units.PricingRule": 0,
+      "occupants.Student": 0,
+      "occupancy.Occupancy": 0,
+      "payments.Payment": 0,
+      "payments.Receipt": 0
+    },
+    "total_records": 0,
+    "created_at": "2026-06-27T21:41:52.473238",
+    "django_version": ""
+  },
+  "data": {
+    "properties.Property": [],
+    "sections.Section": [],
+    "units.Unit": [],
+    "units.PricingRule": [],
+    "occupants.Student": [],
+    "occupancy.Occupancy": [],
+    "payments.Payment": [],
+    "payments.Receipt": []
+  }
+}
