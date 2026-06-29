@@ -304,7 +304,7 @@ class PricingRuleViewSet(viewsets.ViewSet):
             entity_type=AuditLog.EntityType.PRICING_RULE,
             entity_id=rule.id,
             action=AuditLog.Action.CREATE,
-            description=f"Pricing rule for unit '{rule.unit_name}' ({rule.billing_mode}, {rule.price}).",
+            description=f"Pricing rule for unit '{rule.unit.name}' ({rule.billing_mode}, {rule.price}).",
             ip_address=request.META.get("REMOTE_ADDR"),
         )
         return Response(PricingRuleSerializer(rule).data, status=status.HTTP_201_CREATED)
@@ -344,7 +344,7 @@ class PricingRuleViewSet(viewsets.ViewSet):
     @_handle_exceptions
     def destroy(self, request, pk=None):
         rule = AdminService.get_pricing_rule(pk)
-        unit_name = rule.unit_name
+        unit_name = rule.unit.name
         rule.delete()
         AuditService.log(
             actor=request.user,

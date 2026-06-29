@@ -74,10 +74,10 @@ class StudentAPITests(TestCase):
             national_id="",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["email"], "")
+        self.assertIsNone(response.data["email"])
         self.assertEqual(response.data["phone"], "")
-        self.assertEqual(response.data["student_id_number"], "")
-        self.assertEqual(response.data["national_id"], "")
+        self.assertIsNone(response.data["student_id_number"])
+        self.assertIsNone(response.data["national_id"])
 
     def test_create_student_unauthenticated(self):
         self.client.credentials()
