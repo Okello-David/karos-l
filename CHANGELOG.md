@@ -1,5 +1,14 @@
 # Changelog
 
+## Frontend Auth & Layout Pass
+
+### Frontend Fixes
+- Implemented the frontend login/logout flow: a login page, a route guard so the app can no longer be reached without a valid session, and a working logout action showing the real signed-in user. The API client now redirects to the login page automatically if a session expires, instead of leaving the user on a dead-end error.
+- Fixed a desktop layout bug where maximized windows showed a large blank gap between the sidebar and the page content.
+
+### Tests
+- Added frontend regression tests for the login form and the route guard.
+
 ## Backend API Stability Sweep
 
 ### Backend Fixes
