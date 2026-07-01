@@ -1,5 +1,7 @@
 import json
 import os
+from datetime import date
+from decimal import Decimal
 
 from django.test import TestCase
 from rest_framework import status
@@ -116,6 +118,54 @@ class BackupServiceTests(TestCase):
         student = Student.objects.get(student_id_number="ORI001")
         self.assertEqual(student.first_name, "Original")
 
+    def test_restore_backup_with_related_records(self):
+        from apps.occupancy.models import Occupancy
+        from apps.occupants.models import Student
+        from apps.payments.models import Payment
+        from apps.properties.models import Property
+        from apps.sections.models import Section
+        from apps.units.models import Unit
+
+        prop = Property.objects.create(name="Restore Prop", code="RST01")
+        section = Section.objects.create(property=prop, name="Restore Section")
+        unit = Unit.objects.create(
+            section=section,
+            name="Restore Unit",
+            capacity=2,
+            semester_price=Decimal("500000.00"),
+            monthly_price=Decimal("200000.00"),
+        )
+        student = Student.objects.create(
+            first_name="Related",
+            last_name="Student",
+            email="related@test.com",
+            student_id_number="REL001",
+            national_id="REL001",
+        )
+        Occupancy.objects.create(
+            student=student,
+            unit=unit,
+            start_date=date.today(),
+            billing_mode="semester",
+            agreed_price=Decimal("500000.00"),
+        )
+        Payment.objects.create(
+            student=student,
+            amount=Decimal("100000.00"),
+            payment_date=date.today(),
+            payment_method="cash",
+        )
+
+        backup = BackupService.create_backup(user=self.user)
+        section.name = "Modified Section"
+        section.save()
+
+        restored_counts = BackupService.restore_backup(backup)
+
+        self.assertGreater(restored_counts["sections.Section"], 0)
+        section.refresh_from_db()
+        self.assertEqual(section.name, "Restore Section")
+
 
 class ExportServiceTests(TestCase):
 
@@ -133,6 +183,16 @@ class ExportServiceTests(TestCase):
         self.assertIn("Export", content)
         self.assertIn("Test", content)
 
+    def test_export_occupants_csv_columns_match_data(self):
+        import csv
+        import io
+
+        content, _, _ = ExportService.export_occupants(file_format="csv")
+        rows = list(csv.DictReader(io.StringIO(content)))
+        row = next(r for r in rows if r["Email"] == "export@test.com")
+        self.assertEqual(row["Student ID"], "EXP001")
+        self.assertEqual(row["Active"], "True")
+
     def test_export_occupants_xlsx(self):
         content, filename, content_type = ExportService.export_occupants(file_format="xlsx")
         self.assertIn(".xlsx", filename)
@@ -142,6 +202,31 @@ class ExportServiceTests(TestCase):
         content, filename, content_type = ExportService.export_occupancies(file_format="csv")
         self.assertIn(".csv", filename)
 
+    def test_export_occupancies_csv_columns_match_data(self):
+        import csv
+        import io
+
+        from apps.occupancy.models import Occupancy
+        from apps.properties.models import Property
+        from apps.sections.models import Section
+        from apps.units.models import Unit
+
+        prop = Property.objects.create(name="Export Prop", code="EXP01")
+        section = Section.objects.create(property=prop, name="Export Section")
+        unit = Unit.objects.create(
+            section=section, name="Export Unit", capacity=2,
+            semester_price=Decimal("500000.00"), monthly_price=Decimal("200000.00"),
+        )
+        Occupancy.objects.create(
+            student=self.student, unit=unit, start_date=date.today(),
+            billing_mode="semester", agreed_price=Decimal("500000.00"),
+        )
+
+        content, _, _ = ExportService.export_occupancies(file_format="csv")
+        rows = list(csv.DictReader(io.StringIO(content)))
+        row = next(r for r in rows if r["Unit"] == "Export Unit")
+        self.assertEqual(row["Active"], "True")
+
     def test_export_payments_csv(self):
         content, filename, content_type = ExportService.export_payments(file_format="csv")
         self.assertIn(".csv", filename)
@@ -149,6 +234,40 @@ class ExportServiceTests(TestCase):
     def test_export_receipts_csv(self):
         content, filename, content_type = ExportService.export_receipts(file_format="csv")
         self.assertIn(".csv", filename)
+
+    def test_export_receipts_csv_columns_match_data(self):
+        import csv
+        import io
+
+        from apps.occupancy.models import Occupancy
+        from apps.payments.services import PaymentService
+        from apps.properties.models import Property
+        from apps.sections.models import Section
+        from apps.units.models import Unit
+
+        prop = Property.objects.create(name="Receipt Prop", code="RCP01")
+        section = Section.objects.create(property=prop, name="Receipt Section")
+        unit = Unit.objects.create(
+            section=section, name="Receipt Unit", capacity=2,
+            semester_price=Decimal("500000.00"), monthly_price=Decimal("200000.00"),
+        )
+        Occupancy.objects.create(
+            student=self.student, unit=unit, start_date=date.today(),
+            billing_mode="semester", agreed_price=Decimal("500000.00"),
+        )
+        PaymentService.record_payment(
+            student_id=self.student.id,
+            amount=Decimal("100000.00"),
+            payment_date=date.today(),
+            payment_method="cash",
+        )
+
+        content, _, _ = ExportService.export_receipts(file_format="csv")
+        rows = list(csv.DictReader(io.StringIO(content)))
+        row = next(r for r in rows if r["Student Name"] == "Export Test")
+        self.assertEqual(row["Unit"], "Receipt Unit")
+        self.assertEqual(row["Property"], "Receipt Prop")
+        self.assertEqual(row["Outstanding Balance"], "400000.0")
 
     def test_invalid_format(self):
         with self.assertRaises(ValueError):

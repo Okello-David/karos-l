@@ -2,6 +2,7 @@ import datetime
 from datetime import date
 from decimal import Decimal
 
+from django.db import transaction
 from django.db.models import Q, Sum
 
 from apps.core.exceptions import ConflictError, NotFoundError
@@ -107,10 +108,10 @@ class PaymentService:
             reference=reference,
             notes=notes,
         )
-        payment.full_clean()
-        payment.save()
-
-        PaymentService._generate_receipt(payment)
+        with transaction.atomic():
+            payment.full_clean()
+            payment.save()
+            PaymentService._generate_receipt(payment)
 
         return payment
 
@@ -146,7 +147,7 @@ class PaymentService:
             receipt_number=PaymentService._generate_receipt_number(),
             outstanding_balance_after=Decimal(balance_info["balance"]),
             student_name=payment.student.full_name(),
-            student_id_number=payment.student.student_id_number,
+            student_id_number=payment.student.student_id_number or "",
             unit_name=unit_name,
             property_name=property_name,
             amount=payment.amount,
@@ -205,18 +206,17 @@ class PaymentService:
 
     @staticmethod
     def _calculate_occupancy_charge(occupancy):
-        if occupancy.agreed_price is not None:
-            return occupancy.agreed_price
         unit = occupancy.unit
         if occupancy.billing_mode == "semester":
-            return unit.semester_price
-        else:
-            end = occupancy.end_date or date.today()
-            days = (end - occupancy.start_date).days
-            months = (days + 29) // 30
-            if months < 1:
-                months = 1
-            return unit.monthly_price * Decimal(months)
+            return occupancy.agreed_price if occupancy.agreed_price is not None else unit.semester_price
+
+        monthly_rate = occupancy.agreed_price if occupancy.agreed_price is not None else unit.monthly_price
+        end = occupancy.end_date or date.today()
+        days = (end - occupancy.start_date).days
+        months = (days + 29) // 30
+        if months < 1:
+            months = 1
+        return monthly_rate * Decimal(months)
 
     @staticmethod
     def calculate_student_balance(student_id):

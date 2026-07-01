@@ -1,5 +1,46 @@
 # Changelog
 
+## Backend API Stability Sweep
+
+### Backend Fixes
+- Fixed occupant creation crashing with HTTP 500 (`IntegrityError`) whenever a second occupant was created without an email, student ID, or national ID, by making those fields nullable and normalizing blank submissions to `null` (ported and applied the existing vetted fix for this).
+- Applied a same-day-checkout database migration that existed in the codebase but had never been run, so same-day checkout still crashed before this fix.
+- Fixed a crash recording payments for occupants without a student ID number, caused by the occupant nullability fix above.
+- Made payment recording atomic so a receipt-generation failure no longer leaves an orphaned payment record with no receipt.
+- Fixed occupancy checkout incorrectly allowing a stale "active" state after an occupancy's end date was updated directly, which could crash a later checkout attempt.
+- Fixed CSV/Excel exports for occupants, occupancies, and receipts silently omitting the Student ID, Active, Outstanding Balance, Unit, and Property columns due to a header/data key mismatch.
+
+### Tests
+- Added backend regression tests for: creating a second occupant with blank optional identifiers, recording a payment for an occupant without a student ID, payment/receipt atomicity on failure, occupancy `end_date`/`is_active` consistency, and export column accuracy for occupants, occupancies, and receipts.
+
+## Critical/High Debugging Pass
+
+### Backend Fixes
+- Restricted administration endpoints to authenticated Property Manager users or superusers instead of any authenticated user.
+- Prevented admin user create/update from accepting writable `is_superuser` and fixed group assignment through `groups.set(...)`.
+- Fixed pricing-rule create/delete HTTP 500 errors caused by reading serializer-only `unit_name` on `PricingRule` models.
+- Fixed backup restore for serialized foreign keys by restoring FK values through `<field>_id` attributes.
+- Fixed occupancy assignment price snapshots to use effective pricing rules.
+- Fixed monthly balance calculation so snapshotted monthly prices are multiplied by elapsed billing months.
+- Allowed same-day checkout by aligning occupancy validation and DB constraint with checkout behavior.
+- Fixed payment serialization for payments that do not have receipt records.
+- Fixed dashboard summary API response for the current Dashboard page by returning `total_students` and `active_students` from `/api/occupancy/summary/`.
+
+### Frontend Fixes
+- Fixed `OccupantDetail` payment-summary loading crash by importing `CardSkeleton`.
+- Fixed Global Search endpoint paths and explorer response handling.
+- Fixed Explorer unit selection so clicking a unit opens the existing detail panel.
+- Fixed authenticated receipt PDF downloads by fetching PDFs through the token-aware API client.
+- Fixed the Properties page so created properties display from the existing property hierarchy API instead of a static placeholder.
+- Prevented Administration unit creation from submitting without a selected section.
+- Fixed Payment workflow crash (`useState is not defined`) by importing `useState` in `PaymentDetailDialog`.
+
+### Tests
+- Added/updated backend tests for admin permissions, pricing-rule create/delete, user groups, backup FK restore, pricing-rule snapshots, same-day checkout, monthly billing snapshots, and payments without receipts.
+- Added a backend release workflow test covering login, property/section/unit setup, occupant assignment, payment/receipt, dashboard/explorer, backup/export/restore, and logout.
+- Added frontend tests for Global Search API paths, Explorer unit selection, and the Properties overview page.
+- Added a frontend test for `PaymentDetailDialog` rendering to guard against the missing-import crash.
+
 ## Sprint 17 — UX & Onboarding (DONE)
 
 ### New Components

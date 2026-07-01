@@ -197,6 +197,7 @@ class AdminService:
 
     @staticmethod
     def create_user(data):
+        groups_data = data.pop("groups", [])
         password = data.pop("password", None)
         user = User(**data)
         if password:
@@ -204,16 +205,20 @@ class AdminService:
         else:
             user.set_unusable_password()
         user.save()
+        user.groups.set(groups_data)
         return user
 
     @staticmethod
     def update_user(instance, data):
+        groups_data = data.pop("groups", None)
         password = data.pop("password", None)
         for attr, value in data.items():
             setattr(instance, attr, value)
         if password:
             instance.set_password(password)
         instance.save()
+        if groups_data is not None:
+            instance.groups.set(groups_data)
         return instance
 
     @staticmethod

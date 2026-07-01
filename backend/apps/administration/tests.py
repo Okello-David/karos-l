@@ -21,6 +21,8 @@ class AdminAPITests(TestCase):
         self.user = User.objects.create_user(
             username="admin", password="pass123", is_staff=True
         )
+        self.manager_group, _ = Group.objects.get_or_create(name="Property Manager")
+        self.user.groups.add(self.manager_group)
         self.token = Token.objects.create(user=self.user)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
 
@@ -104,6 +106,13 @@ class AdminAPITests(TestCase):
         self.client.credentials()
         response = self.client.get(f"{self.admin_url}properties/")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_properties_regular_authenticated_forbidden(self):
+        user = User.objects.create_user(username="regular", password="pass123")
+        token = Token.objects.create(user=user)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+        response = self.client.get(f"{self.admin_url}properties/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     # ---- Sections ----
 
@@ -344,6 +353,42 @@ class AdminAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["username"], "newuser")
         self.assertTrue(response.data["is_staff"])
+
+    def test_create_user_with_groups(self):
+        data = {
+            "username": "manager2",
+            "password": "secret123",
+            "groups": [self.manager_group.id],
+        }
+        response = self.client.post(f"{self.admin_url}users/", data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        created = User.objects.get(username="manager2")
+        self.assertTrue(created.groups.filter(id=self.manager_group.id).exists())
+
+    def test_create_user_cannot_set_superuser(self):
+        data = {
+            "username": "not-super",
+            "password": "secret123",
+            "is_superuser": True,
+        }
+        response = self.client.post(f"{self.admin_url}users/", data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        created = User.objects.get(username="not-super")
+        self.assertFalse(created.is_superuser)
+
+    def test_update_user_with_groups(self):
+        user2 = User.objects.create_user(username="editable", password="pass123")
+        data = {
+            "username": "editable",
+            "email": "edit@example.com",
+            "groups": [self.manager_group.id],
+        }
+        response = self.client.put(
+            f"{self.admin_url}users/{user2.id}/", data, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user2.refresh_from_db()
+        self.assertTrue(user2.groups.filter(id=self.manager_group.id).exists())
 
     def test_toggle_user_active(self):
         user2 = User.objects.create_user(

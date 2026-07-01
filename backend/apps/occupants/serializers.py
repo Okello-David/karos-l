@@ -34,6 +34,22 @@ class StudentSerializer(serializers.ModelSerializer):
         return value
 
     def validate_email(self, value):
-        if value and Student.objects.filter(email=value).exclude(id=self.instance.id if self.instance else None).exists():
+        if not value:
+            return None
+        if Student.objects.filter(email=value).exclude(id=self.instance.id if self.instance else None).exists():
             raise serializers.ValidationError("A student with this email already exists.")
+        return value
+
+    def validate_student_id_number(self, value):
+        if not value:
+            return None
+        if Student.objects.filter(student_id_number=value).exclude(id=self.instance.id if self.instance else None).exists():
+            raise serializers.ValidationError("A student with this student ID number already exists.")
+        return value
+
+    def validate_national_id(self, value):
+        if not value:
+            return None
+        if Student.objects.filter(national_id=value).exclude(id=self.instance.id if self.instance else None).exists():
+            raise serializers.ValidationError("A student with this national ID already exists.")
         return value

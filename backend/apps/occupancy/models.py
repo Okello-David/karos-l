@@ -38,7 +38,7 @@ class Occupancy(models.Model):
         ordering = ["-start_date"]
         constraints = [
             models.CheckConstraint(
-                condition=Q(end_date__isnull=True) | Q(end_date__gt=models.F("start_date")),
+                condition=Q(end_date__isnull=True) | Q(end_date__gte=models.F("start_date")),
                 name="ck_occupancy_end_date_after_start",
             ),
         ]
@@ -57,8 +57,8 @@ class Occupancy(models.Model):
         ]
 
     def clean(self):
-        if self.end_date and self.end_date <= self.start_date:
-            raise ValidationError({"end_date": "End date must be after start date."})
+        if self.end_date and self.end_date < self.start_date:
+            raise ValidationError({"end_date": "End date must be on or after start date."})
         if self.end_date is None:
             active_exists = (
                 Occupancy.objects

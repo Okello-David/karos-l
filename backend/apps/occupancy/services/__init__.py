@@ -3,6 +3,7 @@ from datetime import date
 from apps.core.exceptions import ConflictError, NotFoundError
 from apps.occupants.models import Student
 from apps.units.models import Unit
+from apps.administration.services import AdminService
 
 from ..models import Occupancy
 
@@ -70,8 +71,8 @@ class OccupancyService:
                 f"Unit '{unit.name}' is at full capacity ({unit.capacity})."
             )
 
-        agreed_price = (
-            unit.semester_price if billing_mode == "semester" else unit.monthly_price
+        agreed_price = AdminService.get_effective_price(
+            unit.id, billing_mode, start_date
         )
 
         occupancy = Occupancy(
@@ -88,7 +89,7 @@ class OccupancyService:
     def checkout_occupancy(occupancy_id):
         occupancy = OccupancyService.get_occupancy(occupancy_id)
 
-        if not occupancy.is_active:
+        if occupancy.end_date is not None:
             raise ConflictError("This occupancy is already closed.")
 
         occupancy.end_date = date.today()
@@ -99,11 +100,20 @@ class OccupancyService:
     @staticmethod
     def update_occupancy(occupancy_id, data):
         occupancy = OccupancyService.get_occupancy(occupancy_id)
+        recalculate_price = any(field in data for field in {"start_date", "billing_mode"})
 
         allowed_fields = {"start_date", "end_date", "billing_mode"}
         for field in allowed_fields:
             if field in data:
                 setattr(occupancy, field, data[field])
+
+        if "end_date" in data:
+            occupancy.is_active = data["end_date"] is None
+
+        if recalculate_price:
+            occupancy.agreed_price = AdminService.get_effective_price(
+                occupancy.unit_id, occupancy.billing_mode, occupancy.start_date
+            )
 
         occupancy.save()
         return occupancy

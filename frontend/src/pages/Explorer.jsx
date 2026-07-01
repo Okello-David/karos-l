@@ -17,7 +17,7 @@ function SearchIcon() {
 export default function Explorer() {
   const [search, setSearch] = useState('')
   const [selectedUnitId, setSelectedUnitId] = useState(null)
-  const { data: properties, loading, error, refetch } = useExplorer(search)
+  const { data: properties, loading, error } = useExplorer(search)
 
   const handleSearch = useCallback((value) => {
     setSearch(value)
@@ -94,6 +94,7 @@ export default function Explorer() {
                   key={property.id}
                   property={property}
                   defaultOpen={properties.length === 1}
+                  onSelectUnit={handleSelectUnit}
                 />
               ))
             )}

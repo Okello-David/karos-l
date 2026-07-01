@@ -443,7 +443,13 @@ function UnitTab() {
             <option value="">All Sections</option>
             {sections?.map((s) => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
           </select>
-          <Button size="sm" onClick={() => setDialog({ mode: 'create', item: null, title: 'Create Unit' })}>Add Unit</Button>
+          <Button
+            size="sm"
+            disabled={!selectedSection}
+            onClick={() => setDialog({ mode: 'create', item: null, title: 'Create Unit' })}
+          >
+            Add Unit
+          </Button>
         </div>
       </div>
 

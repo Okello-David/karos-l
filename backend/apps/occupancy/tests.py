@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from decimal import Decimal
 
 from django.test import TestCase
 from rest_framework import status
@@ -9,7 +10,7 @@ from apps.accounts.models import User
 from apps.occupants.models import Student
 from apps.properties.models import Property
 from apps.sections.models import Section
-from apps.units.models import Unit
+from apps.units.models import PricingRule, Unit
 
 from .models import Occupancy
 
@@ -77,6 +78,18 @@ class OccupancyAPITests(TestCase):
         self.assertIn("student_full_name", response.data)
         self.assertIn("unit_name", response.data)
         self.assertIn("property_name", response.data)
+
+    def test_assign_uses_effective_pricing_rule(self):
+        PricingRule.objects.create(
+            unit=self.unit,
+            billing_mode="semester",
+            price=Decimal("450000.00"),
+            effective_date=date.today() - timedelta(days=1),
+        )
+        response = self._assign(start_date=date.today().isoformat())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        occupancy = Occupancy.objects.get(id=response.data["id"])
+        self.assertEqual(occupancy.agreed_price, Decimal("450000.00"))
 
     def test_assign_nonexistent_student(self):
         response = self._assign(student=99999)
@@ -189,6 +202,21 @@ class OccupancyAPITests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_patching_end_date_keeps_is_active_in_sync(self):
+        create_resp = self._assign()
+        occupancy_id = create_resp.data["id"]
+        patch_resp = self.client.patch(
+            f"{self.list_url}{occupancy_id}/",
+            {"end_date": date.today().isoformat()},
+            format="json",
+        )
+        self.assertEqual(patch_resp.status_code, status.HTTP_200_OK)
+        self.assertFalse(patch_resp.data["is_active"])
+
+        checkout_resp = self.client.post(f"{self.list_url}{occupancy_id}/checkout/")
+        self.assertEqual(checkout_resp.status_code, status.HTTP_409_CONFLICT)
+        self.assertIn("already closed", checkout_resp.data["detail"])
+
     # --- Checkout ---
 
     def test_checkout_success(self):
@@ -198,6 +226,13 @@ class OccupancyAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["end_date"], date.today().isoformat())
         self.assertFalse(response.data["is_active"])
+
+    def test_checkout_same_day_assignment(self):
+        create_resp = self._assign(start_date=date.today().isoformat())
+        occupancy_id = create_resp.data["id"]
+        response = self.client.post(f"{self.list_url}{occupancy_id}/checkout/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["end_date"], date.today().isoformat())
 
     def test_checkout_twice(self):
         create_resp = self._assign()
@@ -225,6 +260,8 @@ class OccupancyAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["total_occupied"], 0)
         self.assertEqual(response.data["total_capacity"], self.unit.capacity)
+        self.assertEqual(response.data["total_students"], 1)
+        self.assertEqual(response.data["active_students"], 1)
         self.assertEqual(len(response.data["properties"]), 1)
 
     def test_summary_with_occupancy(self):

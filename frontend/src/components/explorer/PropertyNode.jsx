@@ -24,7 +24,7 @@ function countUnits(sections) {
   return sections.reduce((sum, s) => sum + (s.units?.length || 0), 0)
 }
 
-export default function PropertyNode({ property, defaultOpen = false }) {
+export default function PropertyNode({ property, defaultOpen = false, onSelectUnit }) {
   const [open, setOpen] = useState(defaultOpen)
   const sections = property.sections || []
   const unitCount = countUnits(sections)
@@ -55,7 +55,7 @@ export default function PropertyNode({ property, defaultOpen = false }) {
           ) : (
             <div className="divide-y divide-gray-50">
               {sections.map((section) => (
-                <SectionNode key={section.id} section={section} />
+                <SectionNode key={section.id} section={section} onSelectUnit={onSelectUnit} />
               ))}
             </div>
           )}

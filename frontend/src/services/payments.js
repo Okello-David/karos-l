@@ -49,4 +49,8 @@ export const paymentsService = {
   receiptPdfUrl(id) {
     return `/api/payments/receipts/${id}/pdf/`
   },
+
+  receiptPdf(id) {
+    return api.blob(`/payments/receipts/${id}/pdf/`)
+  },
 }

@@ -9,6 +9,7 @@ from apps.audit.services import AuditService
 from apps.core.exceptions import ConflictError, NotFoundError
 from apps.core.permissions import IsPropertyManager
 from apps.properties.models import Property
+from apps.occupants.models import Student
 from apps.units.models import Unit
 
 from .models import Occupancy
@@ -118,6 +119,8 @@ class OccupancyViewSet(viewsets.ViewSet):
         )
         total_occupied = Occupancy.objects.filter(end_date__isnull=True).count()
         total_available = total_capacity - total_occupied
+        total_students = Student.objects.count()
+        active_students = Student.objects.filter(is_active=True).count()
 
         properties_data = []
         for prop in Property.objects.filter(is_active=True):
@@ -147,5 +150,7 @@ class OccupancyViewSet(viewsets.ViewSet):
             "total_capacity": total_capacity,
             "total_occupied": total_occupied,
             "total_available": total_available,
+            "total_students": total_students,
+            "active_students": active_students,
             "properties": properties_data,
         })

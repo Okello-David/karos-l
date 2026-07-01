@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import PageContainer from '../components/PageContainer'
 import Card from '../components/Card'
 import Button from '../components/Button'
@@ -12,6 +12,7 @@ export default function Receipts() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(1)
+  const [pdfError, setPdfError] = useState(null)
 
   const params = {}
   if (search) params.search = search
@@ -25,6 +26,18 @@ export default function Receipts() {
   const handleSearch = (e) => {
     e.preventDefault()
     setPage(1)
+  }
+
+  const handlePdf = async (receiptId) => {
+    setPdfError(null)
+    try {
+      const blob = await paymentsService.receiptPdf(receiptId)
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank', 'noopener,noreferrer')
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (err) {
+      setPdfError(err.message)
+    }
   }
 
   return (
@@ -61,6 +74,8 @@ export default function Receipts() {
           />
           <Button variant="secondary" type="submit">Search</Button>
         </form>
+
+        {pdfError && <p className="text-sm text-red-600 mb-4">{pdfError}</p>}
 
         {loading ? (
           <div className="space-y-3">
@@ -117,14 +132,13 @@ export default function Receipts() {
                       <td className="py-3 px-6 text-gray-500 capitalize">{r.payment_method}</td>
                       <td className="py-3 px-6 text-gray-500">{r.unit_name || '—'}</td>
                       <td className="py-3 px-6">
-                        <a
-                          href={paymentsService.receiptPdfUrl(r.id)}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => handlePdf(r.id)}
                           className="text-primary-600 hover:text-primary-700 text-sm font-medium"
                         >
                           PDF
-                        </a>
+                        </button>
                       </td>
                     </tr>
                   ))}

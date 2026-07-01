@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import PageContainer from '../components/PageContainer'
 import Card from '../components/Card'
 import Button from '../components/Button'
 import { Skeleton } from '../components/Skeleton'
 import EmptyState from '../components/EmptyState'
-import RecordPaymentDialog from '../components/RecordPaymentDialog'
 import PaymentDetailDialog from '../components/PaymentDetailDialog'
 import { usePayments, useOverdueStudents } from '../hooks/usePayments'
 import { useOccupancySummary } from '../hooks/useOccupancy'
@@ -18,6 +17,7 @@ const methodLabels = {
 
 export default function Payments() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [methodFilter, setMethodFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -29,6 +29,8 @@ export default function Payments() {
   if (methodFilter) params.payment_method = methodFilter
   if (dateFrom) params.date_from = dateFrom
   if (dateTo) params.date_to = dateTo
+  const studentFilter = searchParams.get('student')
+  if (studentFilter) params.student_id = studentFilter
   params.page = page
   params.page_size = 20
 
@@ -36,16 +38,8 @@ export default function Payments() {
   const { data: overdue } = useOverdueStudents()
   const { data: summary } = useOccupancySummary()
 
-  const [recordOpen, setRecordOpen] = useState(false)
-  const [recordOccupant, setRecordOccupant] = useState(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailPayment, setDetailPayment] = useState(null)
-
-  const handleRecorded = () => {
-    setRecordOpen(false)
-    setRecordOccupant(null)
-    refetch()
-  }
 
   const handleViewDetail = (payment) => {
     setDetailPayment(payment)
@@ -54,6 +48,13 @@ export default function Payments() {
 
   const handleSearch = (e) => {
     e.preventDefault()
+    setPage(1)
+  }
+
+  const clearStudentFilter = () => {
+    const next = new URLSearchParams(searchParams)
+    next.delete('student')
+    setSearchParams(next, { replace: true })
     setPage(1)
   }
 
@@ -105,9 +106,18 @@ export default function Payments() {
             >
               View Receipts &rarr;
             </Link>
-            <Button onClick={() => navigate('/occupants')}>Record Payment</Button>
+            <Button onClick={() => navigate('/occupants')}>Choose Occupant</Button>
           </div>
         </div>
+
+        {studentFilter && (
+          <div className="flex items-center justify-between gap-3 mb-4 rounded-lg bg-primary-50 px-4 py-2 text-sm text-primary-800">
+            <span>Showing payments for selected occupant.</span>
+            <button type="button" onClick={clearStudentFilter} className="font-medium text-primary-700 hover:text-primary-900">
+              Clear filter
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
           <input
@@ -160,7 +170,7 @@ export default function Payments() {
             icon="currency"
             title={search ? 'No payments match your search' : 'No payments recorded'}
             description={
-              search
+              search || studentFilter
                 ? 'Try a different search term or date range.'
                 : 'Payments will appear here once you start recording them.'
             }
@@ -292,13 +302,6 @@ export default function Payments() {
           </div>
         </Card>
       </div>
-
-      <RecordPaymentDialog
-        open={recordOpen}
-        occupant={recordOccupant}
-        onClose={() => setRecordOpen(false)}
-        onRecorded={handleRecorded}
-      />
 
       <PaymentDetailDialog
         open={detailOpen}

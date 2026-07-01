@@ -17,7 +17,7 @@ export default function Dashboard() {
   const { data: summary, loading: occLoading } = useOccupancySummary()
   const { data: recentPayments, loading: pmtLoading } = usePayments({ page_size: 5 })
   const { data: overdue } = useOverdueStudents()
-  const { data: activity, loading: actLoading } = useAuditLogs({ page_size: 5 })
+  const { data: activity, loading: actLoading, error: actError } = useAuditLogs({ page_size: 5 })
 
   const livePayments = recentPayments?.results?.map((p) => ({
     id: p.id,
@@ -148,7 +148,8 @@ export default function Dashboard() {
         <div className="xl:col-span-2">
           <PaymentTable
             title="Recent Payments"
-            payments={pmtLoading ? null : livePayments}
+            payments={livePayments}
+            loading={pmtLoading}
           />
         </div>
 
@@ -165,6 +166,8 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+          ) : actError ? (
+            <p className="text-sm text-gray-500 text-center py-8">Recent activity is unavailable.</p>
           ) : activityItems.length > 0 ? (
             <div className="space-y-0">
               {activityItems.map((log, i) => {
@@ -201,5 +204,4 @@ export default function Dashboard() {
     </PageContainer>
   )
 }
-
 

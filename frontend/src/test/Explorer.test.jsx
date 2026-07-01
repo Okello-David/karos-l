@@ -106,4 +106,28 @@ describe('Explorer Page', () => {
     await user.type(input, 'Nonexistent')
     expect(await screen.findByText('No matching results')).toBeInTheDocument()
   })
+
+  it('opens unit detail when a unit is selected', async () => {
+    explorerService.getHierarchy.mockResolvedValue(mockProperties)
+    explorerService.getUnitDetail.mockResolvedValue({
+      id: 1,
+      name: 'Room 101',
+      section_name: 'Block A',
+      property_name: 'Main Campus',
+      capacity: 2,
+      current_occupant_count: 1,
+      available_spaces: 1,
+      semester_price: '500000.00',
+      monthly_price: '200000.00',
+      active_occupants: [],
+    })
+    const user = userEvent.setup()
+    renderExplorer()
+
+    await screen.findByText('Main Campus')
+    await user.click(screen.getByText('Block A'))
+    await user.click(screen.getByText('Room 101'))
+
+    expect(explorerService.getUnitDetail).toHaveBeenCalledWith(1)
+  })
 })

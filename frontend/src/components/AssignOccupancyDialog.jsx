@@ -25,6 +25,7 @@ export default function AssignOccupancyDialog({ open, occupant, onClose, onAssig
   const [billingMode, setBillingMode] = useState('semester')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [loadingProperties, setLoadingProperties] = useState(false)
   const [loadingSections, setLoadingSections] = useState(false)
   const [loadingUnits, setLoadingUnits] = useState(false)
 
@@ -37,9 +38,11 @@ export default function AssignOccupancyDialog({ open, occupant, onClose, onAssig
     setStartDate(new Date().toISOString().split('T')[0])
     setBillingMode('semester')
     setError(null)
+    setLoadingProperties(true)
     propertyService.list()
       .then(setProperties)
-      .catch(() => {})
+      .catch((err) => setError(err.message))
+      .finally(() => setLoadingProperties(false))
   }, [open])
 
   useEffect(() => {
@@ -100,8 +103,6 @@ export default function AssignOccupancyDialog({ open, occupant, onClose, onAssig
   }
 
   if (!open) return null
-
-  const currentStep = STEPS.find((s) => s.num === step)
 
   const listItemClass = (selected = false, disabled = false) =>
     `w-full text-left px-4 py-3 rounded-lg border transition-colors ${
@@ -174,7 +175,9 @@ export default function AssignOccupancyDialog({ open, occupant, onClose, onAssig
           <div>
             <p className="text-sm font-medium text-gray-700 mb-3">Choose a property for {occupant?.full_name}:</p>
             <div className="space-y-2 max-h-60 overflow-y-auto">
-              {properties.length === 0 ? (
+              {loadingProperties ? (
+                <div className="flex justify-center py-8"><Spinner size="sm" label="Loading properties..." /></div>
+              ) : properties.length === 0 ? (
                 <p className="text-gray-500 text-sm text-center py-8">No properties available.</p>
               ) : (
                 properties.map((prop) => (

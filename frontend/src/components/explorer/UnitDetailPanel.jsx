@@ -151,7 +151,7 @@ export default function UnitDetailPanel({ unitId, onClose }) {
                             View Occupant
                           </button>
                           <button
-                            onClick={() => navigate(`/payments?student=${occ.id}`)}
+                            onClick={() => navigate(`/occupants/${occ.id}`)}
                             className="text-xs text-primary-600 hover:text-primary-700 font-medium"
                           >
                             Record Payment
@@ -166,7 +166,7 @@ export default function UnitDetailPanel({ unitId, onClose }) {
                     {unit.available_spaces > 0 && (
                       <p className="mt-1">
                         <button
-                          onClick={() => navigate(`/occupants?assign_unit=${unit.id}`)}
+                          onClick={() => navigate('/occupants')}
                           className="text-primary-600 hover:text-primary-700 font-medium"
                         >
                           Assign Occupant
@@ -185,7 +185,7 @@ export default function UnitDetailPanel({ unitId, onClose }) {
                 <div className="flex flex-wrap gap-2">
                   {unit.available_spaces > 0 && (
                     <button
-                      onClick={() => navigate(`/occupants?assign_unit=${unit.id}`)}
+                      onClick={() => navigate('/occupants')}
                       className="px-3 py-2 text-sm font-medium text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
                     >
                       Assign Occupant
@@ -193,10 +193,10 @@ export default function UnitDetailPanel({ unitId, onClose }) {
                   )}
                   {unit.current_occupants?.length > 0 && (
                     <button
-                      onClick={() => navigate(`/payments?unit=${unit.id}`)}
+                      onClick={() => navigate('/payments')}
                       className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                     >
-                      Record Payment
+                      View Payments
                     </button>
                   )}
                 </div>

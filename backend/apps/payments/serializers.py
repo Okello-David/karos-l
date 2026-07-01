@@ -1,3 +1,4 @@
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 
 from .models import Payment, Receipt
@@ -30,10 +31,16 @@ class PaymentSerializer(serializers.ModelSerializer):
         return obj.student.full_name()
 
     def get_receipt_id(self, obj):
-        return getattr(obj.receipt, "id", None)
+        try:
+            return obj.receipt.id
+        except ObjectDoesNotExist:
+            return None
 
     def get_receipt_number(self, obj):
-        return getattr(obj.receipt, "receipt_number", None)
+        try:
+            return obj.receipt.receipt_number
+        except ObjectDoesNotExist:
+            return None
 
     def validate_reference(self, value):
         if value and Payment.objects.filter(reference=value).exclude(

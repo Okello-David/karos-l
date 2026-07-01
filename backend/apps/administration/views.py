@@ -1,7 +1,6 @@
 from django.contrib.auth.models import Group
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.accounts.models import User
@@ -39,7 +38,7 @@ def _handle_exceptions(fn):
 
 
 class AdminPropertyViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated | IsPropertyManager]
+    permission_classes = [IsPropertyManager]
 
     def list(self, request):
         properties = AdminService.list_properties()
@@ -113,7 +112,7 @@ class AdminPropertyViewSet(viewsets.ViewSet):
 
 
 class AdminSectionViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated | IsPropertyManager]
+    permission_classes = [IsPropertyManager]
 
     def list(self, request):
         property_id = request.query_params.get("property_id")
@@ -203,7 +202,7 @@ class AdminSectionViewSet(viewsets.ViewSet):
 
 
 class AdminUnitViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated | IsPropertyManager]
+    permission_classes = [IsPropertyManager]
 
     def list(self, request):
         section_id = request.query_params.get("section_id")
@@ -280,7 +279,7 @@ class AdminUnitViewSet(viewsets.ViewSet):
 
 
 class PricingRuleViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated | IsPropertyManager]
+    permission_classes = [IsPropertyManager]
 
     def list(self, request):
         unit_id = request.query_params.get("unit_id")
@@ -304,7 +303,7 @@ class PricingRuleViewSet(viewsets.ViewSet):
             entity_type=AuditLog.EntityType.PRICING_RULE,
             entity_id=rule.id,
             action=AuditLog.Action.CREATE,
-            description=f"Pricing rule for unit '{rule.unit_name}' ({rule.billing_mode}, {rule.price}).",
+            description=f"Pricing rule for unit '{rule.unit.name}' ({rule.billing_mode}, {rule.price}).",
             ip_address=request.META.get("REMOTE_ADDR"),
         )
         return Response(PricingRuleSerializer(rule).data, status=status.HTTP_201_CREATED)
@@ -344,7 +343,7 @@ class PricingRuleViewSet(viewsets.ViewSet):
     @_handle_exceptions
     def destroy(self, request, pk=None):
         rule = AdminService.get_pricing_rule(pk)
-        unit_name = rule.unit_name
+        unit_name = rule.unit.name
         rule.delete()
         AuditService.log(
             actor=request.user,
@@ -358,7 +357,7 @@ class PricingRuleViewSet(viewsets.ViewSet):
 
 
 class AdminUserViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated | IsPropertyManager]
+    permission_classes = [IsPropertyManager]
 
     def list(self, request):
         users = AdminService.list_users()

@@ -7,7 +7,7 @@ from datetime import datetime
 from django.apps import apps
 from django.conf import settings
 from django.core import serializers
-from django.db import transaction
+from django.db import models, transaction
 
 from apps.core.exceptions import ConflictError, NotFoundError
 
@@ -161,10 +161,12 @@ class BackupService:
                 fields = entry.get("fields", {})
                 pk = entry.get("pk")
 
-                # Handle FK fields: convert to int if present
-                for fk_field in ["student", "unit", "property", "section", "payment", "created_by", "actor"]:
-                    if fk_field in fields and fields[fk_field] is not None:
-                        fields[fk_field] = int(fields[fk_field])
+                # Django's JSON serializer stores FK values under field names;
+                # model create/update needs the underlying `<field>_id` column.
+                for field in model._meta.fields:
+                    if isinstance(field, models.ForeignKey) and field.name in fields:
+                        value = fields.pop(field.name)
+                        fields[field.attname] = int(value) if value is not None else None
 
                 existing = model.objects.filter(pk=pk).first()
                 if existing:
@@ -186,8 +188,9 @@ class ExportService:
         Student = apps.get_model("occupants.Student")
         qs = Student.objects.all().values(
             "id", "first_name", "last_name", "email", "phone",
-            "student_id_number", "national_id", "is_active",
-            "created_at", "updated_at",
+            "national_id", "created_at", "updated_at",
+            student_id=models.F("student_id_number"),
+            active=models.F("is_active"),
         )
         return ExportService._write_export(qs, [
             "ID", "First Name", "Last Name", "Email", "Phone",
@@ -212,7 +215,7 @@ class ExportService:
                 "end_date": str(o.end_date) if o.end_date else "",
                 "billing_mode": o.billing_mode,
                 "agreed_price": float(o.agreed_price) if o.agreed_price else "",
-                "is_active": o.is_active,
+                "active": o.is_active,
                 "created_at": str(o.created_at) if o.created_at else "",
             })
         return ExportService._write_export(rows, [
@@ -262,11 +265,11 @@ class ExportService:
                 "id": r["id"],
                 "receipt_number": r["receipt_number"],
                 "issued_at": str(r["issued_at"]) if r["issued_at"] else "",
-                "outstanding_balance_after": float(r["outstanding_balance_after"]),
+                "outstanding_balance": float(r["outstanding_balance_after"]),
                 "student_name": r["student_name"],
                 "student_id_number": r["student_id_number"] or "",
-                "unit_name": r["unit_name"],
-                "property_name": r["property_name"],
+                "unit": r["unit_name"],
+                "property": r["property_name"],
                 "amount": float(r["amount"]),
                 "payment_date": str(r["payment_date"]),
                 "payment_method": r["payment_method"],

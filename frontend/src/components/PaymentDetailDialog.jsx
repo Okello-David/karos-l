@@ -1,12 +1,28 @@
+import { useState } from 'react'
 import Button from './Button'
+import { paymentsService } from '../services/payments'
 
 export default function PaymentDetailDialog({ open, payment, onClose }) {
+  const [pdfError, setPdfError] = useState(null)
+
   if (!open || !payment) return null
 
   const methodLabels = {
     cash: 'Cash',
     transfer: 'Bank Transfer',
     card: 'Card',
+  }
+
+  const handleReceiptPdf = async () => {
+    setPdfError(null)
+    try {
+      const blob = await paymentsService.receiptPdf(payment.receipt_id)
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank', 'noopener,noreferrer')
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (err) {
+      setPdfError(err.message)
+    }
   }
 
   return (
@@ -65,14 +81,13 @@ export default function PaymentDetailDialog({ open, payment, onClose }) {
             <dt className="text-gray-500">Receipt</dt>
             <dd className="font-medium text-gray-900">
               {payment.receipt_number ? (
-                <a
-                  href={`/api/payments/receipts/${payment.receipt_id}/pdf/`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={handleReceiptPdf}
                   className="text-primary-600 hover:text-primary-700 font-mono text-xs"
                 >
                   {payment.receipt_number}
-                </a>
+                </button>
               ) : (
                 <span className="text-gray-400">&mdash;</span>
               )}
@@ -91,6 +106,8 @@ export default function PaymentDetailDialog({ open, payment, onClose }) {
             </dd>
           </div>
         </dl>
+
+        {pdfError && <p className="text-sm text-red-600">{pdfError}</p>}
 
         <div className="flex justify-end pt-2">
           <Button variant="secondary" onClick={onClose}>

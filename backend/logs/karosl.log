@@ -1348,3 +1348,768 @@ WARNING 2026-06-28 15:18:36,853 log Unauthorized: /api/payments/
 WARNING 2026-06-28 15:18:36,854 log "GET /api/payments/?page=1&page_size=20 HTTP/1.1" 401 76
 WARNING 2026-06-28 15:18:37,131 log Unauthorized: /api/payments/
 WARNING 2026-06-28 15:18:37,132 log "GET /api/payments/?page=1&page_size=20 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:45:23,794 log Unauthorized: /api/properties/explorer/
+WARNING 2026-06-30 17:45:23,794 log Unauthorized: /api/properties/explorer/
+WARNING 2026-06-30 17:45:23,795 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:45:23,797 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:45:26,084 log Method Not Allowed: /api/auth/login/
+WARNING 2026-06-30 17:45:26,085 log "GET /api/auth/login/ HTTP/1.1" 405 58
+WARNING 2026-06-30 17:45:31,821 log Unauthorized: /api/properties/explorer/
+WARNING 2026-06-30 17:45:31,823 log Unauthorized: /api/properties/explorer/
+WARNING 2026-06-30 17:45:31,824 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:45:31,825 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:45:35,258 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-06-30 17:45:35,260 log Unauthorized: /api/payments/
+WARNING 2026-06-30 17:45:35,262 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:45:35,261 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:45:35,280 log Unauthorized: /api/payments/overdue/
+WARNING 2026-06-30 17:45:35,282 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-06-30 17:45:35,284 log Unauthorized: /api/audit/
+WARNING 2026-06-30 17:45:35,285 log Unauthorized: /api/payments/
+WARNING 2026-06-30 17:45:35,288 log Unauthorized: /api/payments/overdue/
+WARNING 2026-06-30 17:45:35,291 log Unauthorized: /api/audit/
+WARNING 2026-06-30 17:45:35,295 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:45:35,296 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:45:35,296 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:45:35,297 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:45:35,297 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:45:35,300 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:45:43,076 log Unauthorized: /api/properties/explorer/
+WARNING 2026-06-30 17:45:43,079 log Unauthorized: /api/properties/explorer/
+WARNING 2026-06-30 17:45:43,080 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:45:43,080 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:46:09,004 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-06-30 17:46:09,006 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:46:09,019 log Unauthorized: /api/payments/overdue/
+WARNING 2026-06-30 17:46:09,020 log Unauthorized: /api/payments/
+WARNING 2026-06-30 17:46:09,028 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-06-30 17:46:09,035 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:46:09,023 log Unauthorized: /api/payments/overdue/
+WARNING 2026-06-30 17:46:09,033 log Unauthorized: /api/payments/
+WARNING 2026-06-30 17:46:09,039 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:46:09,025 log Unauthorized: /api/audit/
+WARNING 2026-06-30 17:46:09,044 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:46:09,036 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:46:09,035 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:46:09,038 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:46:09,052 log Unauthorized: /api/audit/
+WARNING 2026-06-30 17:46:09,054 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:46:20,108 log Unauthorized: /api/admin/properties/
+WARNING 2026-06-30 17:46:20,109 log "GET /api/admin/properties/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:46:20,120 log Unauthorized: /api/admin/properties/
+WARNING 2026-06-30 17:46:20,121 log "GET /api/admin/properties/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:52:59,480 log Unauthorized: /api/backups/
+WARNING 2026-06-30 17:52:59,481 log "GET /api/backups/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:52:59,487 log Unauthorized: /api/backups/
+WARNING 2026-06-30 17:52:59,488 log "GET /api/backups/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:24,750 log Unauthorized: /api/admin/properties/
+WARNING 2026-06-30 17:54:24,753 log "GET /api/admin/properties/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:24,752 log Unauthorized: /api/admin/properties/
+WARNING 2026-06-30 17:54:24,755 log "GET /api/admin/properties/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:27,440 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-06-30 17:54:27,445 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:27,445 log Unauthorized: /api/payments/
+WARNING 2026-06-30 17:54:27,447 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:27,453 log Unauthorized: /api/payments/overdue/
+WARNING 2026-06-30 17:54:27,455 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-06-30 17:54:27,461 log Unauthorized: /api/payments/
+WARNING 2026-06-30 17:54:27,475 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:27,463 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:27,471 log Unauthorized: /api/audit/
+WARNING 2026-06-30 17:54:27,473 log Unauthorized: /api/payments/overdue/
+WARNING 2026-06-30 17:54:27,480 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:27,474 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:27,482 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:27,467 log Unauthorized: /api/audit/
+WARNING 2026-06-30 17:54:27,483 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:29,486 log Unauthorized: /api/properties/explorer/
+WARNING 2026-06-30 17:54:29,489 log Unauthorized: /api/properties/explorer/
+WARNING 2026-06-30 17:54:29,489 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:29,490 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:30,335 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-06-30 17:54:30,339 log Unauthorized: /api/payments/
+WARNING 2026-06-30 17:54:30,343 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:30,342 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:30,349 log Unauthorized: /api/payments/overdue/
+WARNING 2026-06-30 17:54:30,352 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:30,356 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-06-30 17:54:30,358 log Unauthorized: /api/payments/
+WARNING 2026-06-30 17:54:30,366 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:30,363 log Unauthorized: /api/payments/overdue/
+WARNING 2026-06-30 17:54:30,365 log Unauthorized: /api/audit/
+WARNING 2026-06-30 17:54:30,360 log Unauthorized: /api/audit/
+WARNING 2026-06-30 17:54:30,365 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:30,369 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:30,371 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:30,372 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:31,119 log Unauthorized: /api/properties/explorer/
+WARNING 2026-06-30 17:54:31,123 log Unauthorized: /api/properties/explorer/
+WARNING 2026-06-30 17:54:31,124 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:31,124 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:32,577 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-06-30 17:54:32,582 log Unauthorized: /api/payments/
+WARNING 2026-06-30 17:54:32,585 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:32,588 log Unauthorized: /api/payments/overdue/
+WARNING 2026-06-30 17:54:32,591 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:32,592 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:32,603 log Unauthorized: /api/audit/
+WARNING 2026-06-30 17:54:32,606 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:32,605 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-06-30 17:54:32,608 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:32,615 log Unauthorized: /api/payments/
+WARNING 2026-06-30 17:54:32,620 log Unauthorized: /api/payments/overdue/
+WARNING 2026-06-30 17:54:32,625 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:32,623 log Unauthorized: /api/audit/
+WARNING 2026-06-30 17:54:32,624 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:32,627 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:35,335 log Unauthorized: /api/properties/explorer/
+WARNING 2026-06-30 17:54:35,337 log Unauthorized: /api/properties/explorer/
+WARNING 2026-06-30 17:54:35,338 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:35,341 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:37,078 log Unauthorized: /api/occupants/
+WARNING 2026-06-30 17:54:37,080 log Unauthorized: /api/occupants/
+WARNING 2026-06-30 17:54:37,082 log "GET /api/occupants/?page=1 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:37,083 log "GET /api/occupants/?page=1 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:37,921 log Unauthorized: /api/properties/explorer/
+WARNING 2026-06-30 17:54:37,924 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:37,923 log Unauthorized: /api/properties/explorer/
+WARNING 2026-06-30 17:54:37,927 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:38,564 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-06-30 17:54:38,566 log Unauthorized: /api/payments/
+WARNING 2026-06-30 17:54:38,569 log Unauthorized: /api/payments/overdue/
+WARNING 2026-06-30 17:54:38,569 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:38,579 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-06-30 17:54:38,580 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:38,580 log Unauthorized: /api/audit/
+WARNING 2026-06-30 17:54:38,584 log Unauthorized: /api/payments/
+WARNING 2026-06-30 17:54:38,585 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:38,585 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:38,588 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:38,590 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:38,597 log Unauthorized: /api/payments/overdue/
+WARNING 2026-06-30 17:54:38,600 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:54:38,603 log Unauthorized: /api/audit/
+WARNING 2026-06-30 17:54:38,608 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-06-30 17:55:11,889 log Unauthorized: /api/admin/properties/
+WARNING 2026-06-30 17:55:11,891 log Unauthorized: /api/admin/properties/
+WARNING 2026-06-30 17:55:11,892 log "GET /api/admin/properties/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:55:11,893 log "GET /api/admin/properties/ HTTP/1.1" 401 76
+WARNING 2026-06-30 17:55:28,903 log Unauthorized: /api/admin/properties/
+WARNING 2026-06-30 17:55:28,904 log "POST /api/admin/properties/ HTTP/1.1" 401 76
+WARNING 2026-07-01 14:34:06,190 log Bad Request: /api/auth/login/
+WARNING 2026-07-01 14:34:08,405 log Bad Request: /api/auth/login/
+WARNING 2026-07-01 14:34:09,456 log Bad Request: /api/auth/login/
+WARNING 2026-07-01 14:34:15,869 log Unauthorized: /api/auth/logout/
+WARNING 2026-07-01 14:34:17,990 log Unauthorized: /api/auth/me/
+WARNING 2026-07-01 14:34:31,836 log Not Found: /api/admin/properties/99999/archive/
+WARNING 2026-07-01 14:34:34,018 log Conflict: /api/admin/properties/1/archive/
+WARNING 2026-07-01 14:34:36,170 log Conflict: /api/admin/sections/1/archive/
+WARNING 2026-07-01 14:34:38,271 log Not Found: /api/admin/units/99999/archive/
+WARNING 2026-07-01 14:34:40,383 log Bad Request: /api/admin/pricing-rules/
+WARNING 2026-07-01 14:34:42,497 log Bad Request: /api/admin/properties/
+WARNING 2026-07-01 14:34:44,610 log Bad Request: /api/admin/sections/
+WARNING 2026-07-01 14:34:46,761 log Bad Request: /api/admin/units/
+WARNING 2026-07-01 14:35:09,178 log Forbidden: /api/admin/properties/
+WARNING 2026-07-01 14:35:10,218 log Unauthorized: /api/admin/properties/
+WARNING 2026-07-01 14:35:22,927 log Unauthorized: /api/admin/users/
+WARNING 2026-07-01 14:35:35,495 log Unauthorized: /api/audit/
+WARNING 2026-07-01 14:35:37,579 log Forbidden: /api/audit/
+WARNING 2026-07-01 14:35:59,468 log Unauthorized: /api/backups/
+WARNING 2026-07-01 14:36:01,595 log Forbidden: /api/backups/
+WARNING 2026-07-01 14:36:06,001 log Bad Request: /api/backups/1/restore/
+WARNING 2026-07-01 14:36:24,547 log Bad Request: /api/backups/export/
+WARNING 2026-07-01 14:36:26,759 log Bad Request: /api/backups/export/
+WARNING 2026-07-01 14:36:34,383 log Unauthorized: /api/backups/export/
+WARNING 2026-07-01 14:36:36,837 log Forbidden: /api/backups/export/
+WARNING 2026-07-01 14:36:37,903 log Not Found: /api/occupants/99999/
+WARNING 2026-07-01 14:36:38,981 log Unauthorized: /api/occupants/
+WARNING 2026-07-01 14:36:40,045 log Bad Request: /api/occupants/
+WARNING 2026-07-01 14:36:46,688 log Unauthorized: /api/dashboard/
+WARNING 2026-07-01 14:36:48,769 log Conflict: /api/occupancy/
+WARNING 2026-07-01 14:36:49,788 log Conflict: /api/occupancy/
+WARNING 2026-07-01 14:36:50,813 log Conflict: /api/occupancy/
+WARNING 2026-07-01 14:36:51,811 log Conflict: /api/occupancy/
+WARNING 2026-07-01 14:36:52,819 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 14:36:53,827 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 14:36:56,904 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 14:36:58,280 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 14:36:59,367 log Not Found: /api/occupancy/99999/checkout/
+WARNING 2026-07-01 14:37:02,427 log Conflict: /api/occupancy/1/checkout/
+WARNING 2026-07-01 14:37:06,463 log Not Found: /api/occupancy/99999/
+WARNING 2026-07-01 14:37:09,512 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-07-01 14:37:11,633 log Unauthorized: /api/occupancy/
+WARNING 2026-07-01 14:37:12,738 log Not Found: /api/occupancy/99999/
+WARNING 2026-07-01 14:37:15,002 log Bad Request: /api/occupants/1/archive/
+WARNING 2026-07-01 14:37:18,375 log Bad Request: /api/occupants/
+WARNING 2026-07-01 14:37:20,579 log Bad Request: /api/occupants/
+WARNING 2026-07-01 14:37:21,679 log Bad Request: /api/occupants/
+WARNING 2026-07-01 14:37:23,781 log Unauthorized: /api/occupants/
+WARNING 2026-07-01 14:37:29,934 log Not Found: /api/occupants/99999/
+WARNING 2026-07-01 14:37:41,994 log Bad Request: /api/payments/student_balance/
+WARNING 2026-07-01 14:37:43,000 log Not Found: /api/payments/student_balance/
+WARNING 2026-07-01 14:37:56,248 log Unauthorized: /api/payments/overdue/
+WARNING 2026-07-01 14:37:58,275 log Conflict: /api/payments/
+WARNING 2026-07-01 14:37:59,367 log Bad Request: /api/payments/
+WARNING 2026-07-01 14:38:00,397 log Bad Request: /api/payments/
+WARNING 2026-07-01 14:38:01,413 log Bad Request: /api/payments/
+WARNING 2026-07-01 14:38:02,432 log Bad Request: /api/payments/
+WARNING 2026-07-01 14:38:03,450 log Bad Request: /api/payments/
+WARNING 2026-07-01 14:38:06,533 log Bad Request: /api/payments/
+WARNING 2026-07-01 14:38:08,627 log Bad Request: /api/payments/
+WARNING 2026-07-01 14:38:09,661 log Not Found: /api/payments/99999/
+WARNING 2026-07-01 14:38:12,160 log Unauthorized: /api/payments/
+WARNING 2026-07-01 14:38:16,598 log Unauthorized: /api/payments/receipts/
+WARNING 2026-07-01 14:38:24,865 log Not Found: /api/payments/receipts/99999/pdf/
+WARNING 2026-07-01 14:38:25,876 log Not Found: /api/payments/receipts/99999/
+WARNING 2026-07-01 14:38:44,386 log Unauthorized: /api/properties/explorer/
+ERROR 2026-07-01 15:29:06,327 log Internal Server Error: /api/occupants/
+Traceback (most recent call last):
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/sqlite3/base.py", line 359, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.IntegrityError: UNIQUE constraint failed: occupants_student.student_id_number
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/core/handlers/base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/viewsets.py", line 125, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/apps/occupants/views.py", line 42, in create
+    student = StudentService.create_student(serializer.validated_data)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/apps/occupants/services/__init__.py", line 52, in create_student
+    return Student.objects.create(**data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/query.py", line 669, in create
+    obj.save(force_insert=True, using=self.db)
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 874, in save
+    self.save_base(
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 966, in save_base
+    updated = self._save_table(
+              ^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1169, in _save_table
+    results = self._do_insert(
+              ^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1220, in _do_insert
+    return manager._insert(
+           ^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/query.py", line 1918, in _insert
+    return query.get_compiler(using=using).execute_sql(returning_fields)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/sql/compiler.py", line 1925, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/utils.py", line 94, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/sqlite3/base.py", line 359, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+django.db.utils.IntegrityError: UNIQUE constraint failed: occupants_student.student_id_number
+ERROR 2026-07-01 15:29:06,332 log "POST /api/occupants/ HTTP/1.1" 500 203225
+ERROR 2026-07-01 15:59:22,551 log Internal Server Error: /api/occupants/
+Traceback (most recent call last):
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/sqlite3/base.py", line 359, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.IntegrityError: UNIQUE constraint failed: occupants_student.student_id_number
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/core/handlers/base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/viewsets.py", line 125, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/apps/occupants/views.py", line 42, in create
+    student = StudentService.create_student(serializer.validated_data)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/apps/occupants/services/__init__.py", line 52, in create_student
+    return Student.objects.create(**data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/query.py", line 669, in create
+    obj.save(force_insert=True, using=self.db)
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 874, in save
+    self.save_base(
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 966, in save_base
+    updated = self._save_table(
+              ^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1169, in _save_table
+    results = self._do_insert(
+              ^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1220, in _do_insert
+    return manager._insert(
+           ^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/query.py", line 1918, in _insert
+    return query.get_compiler(using=using).execute_sql(returning_fields)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/sql/compiler.py", line 1925, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/utils.py", line 94, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/sqlite3/base.py", line 359, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+django.db.utils.IntegrityError: UNIQUE constraint failed: occupants_student.student_id_number
+ERROR 2026-07-01 15:59:22,553 log "POST /api/occupants/ HTTP/1.1" 500 203620
+WARNING 2026-07-01 17:37:53,137 log Bad Request: /api/auth/login/
+WARNING 2026-07-01 17:37:55,363 log Bad Request: /api/auth/login/
+WARNING 2026-07-01 17:37:56,573 log Bad Request: /api/auth/login/
+WARNING 2026-07-01 17:38:02,908 log Unauthorized: /api/auth/logout/
+WARNING 2026-07-01 17:38:05,487 log Unauthorized: /api/auth/me/
+WARNING 2026-07-01 17:38:20,710 log Not Found: /api/admin/properties/99999/archive/
+WARNING 2026-07-01 17:38:23,024 log Conflict: /api/admin/properties/1/archive/
+WARNING 2026-07-01 17:38:25,110 log Conflict: /api/admin/sections/1/archive/
+WARNING 2026-07-01 17:38:27,171 log Not Found: /api/admin/units/99999/archive/
+WARNING 2026-07-01 17:38:29,340 log Bad Request: /api/admin/pricing-rules/
+WARNING 2026-07-01 17:38:31,596 log Bad Request: /api/admin/properties/
+WARNING 2026-07-01 17:38:33,668 log Bad Request: /api/admin/sections/
+WARNING 2026-07-01 17:38:35,772 log Bad Request: /api/admin/units/
+WARNING 2026-07-01 17:39:00,091 log Forbidden: /api/admin/properties/
+WARNING 2026-07-01 17:39:01,334 log Unauthorized: /api/admin/properties/
+WARNING 2026-07-01 17:39:15,259 log Unauthorized: /api/admin/users/
+WARNING 2026-07-01 17:39:30,297 log Unauthorized: /api/audit/
+WARNING 2026-07-01 17:39:32,733 log Forbidden: /api/audit/
+WARNING 2026-07-01 17:40:02,706 log Unauthorized: /api/backups/
+WARNING 2026-07-01 17:40:05,860 log Forbidden: /api/backups/
+WARNING 2026-07-01 17:40:12,413 log Bad Request: /api/backups/1/restore/
+WARNING 2026-07-01 17:40:41,523 log Bad Request: /api/backups/export/
+WARNING 2026-07-01 17:40:45,220 log Bad Request: /api/backups/export/
+WARNING 2026-07-01 17:40:55,086 log Unauthorized: /api/backups/export/
+WARNING 2026-07-01 17:40:58,759 log Forbidden: /api/backups/export/
+WARNING 2026-07-01 17:41:00,444 log Not Found: /api/occupants/99999/
+WARNING 2026-07-01 17:41:02,078 log Unauthorized: /api/occupants/
+WARNING 2026-07-01 17:41:03,838 log Bad Request: /api/occupants/
+WARNING 2026-07-01 17:41:13,319 log Unauthorized: /api/dashboard/
+WARNING 2026-07-01 17:41:16,858 log Conflict: /api/occupancy/
+WARNING 2026-07-01 17:41:18,579 log Conflict: /api/occupancy/
+WARNING 2026-07-01 17:41:20,474 log Conflict: /api/occupancy/
+WARNING 2026-07-01 17:41:22,352 log Conflict: /api/occupancy/
+WARNING 2026-07-01 17:41:23,862 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 17:41:25,417 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 17:41:29,757 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 17:41:31,192 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 17:41:32,584 log Not Found: /api/occupancy/99999/checkout/
+WARNING 2026-07-01 17:41:36,801 log Conflict: /api/occupancy/1/checkout/
+WARNING 2026-07-01 17:41:41,946 log Not Found: /api/occupancy/99999/
+WARNING 2026-07-01 17:41:46,308 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-07-01 17:41:49,360 log Unauthorized: /api/occupancy/
+WARNING 2026-07-01 17:41:50,873 log Not Found: /api/occupancy/99999/
+WARNING 2026-07-01 17:41:54,293 log Bad Request: /api/occupants/1/archive/
+WARNING 2026-07-01 17:42:00,329 log Bad Request: /api/occupants/
+WARNING 2026-07-01 17:42:03,045 log Bad Request: /api/occupants/
+WARNING 2026-07-01 17:42:04,367 log Bad Request: /api/occupants/
+WARNING 2026-07-01 17:42:06,933 log Unauthorized: /api/occupants/
+WARNING 2026-07-01 17:42:14,183 log Not Found: /api/occupants/99999/
+WARNING 2026-07-01 17:42:29,288 log Bad Request: /api/payments/student_balance/
+WARNING 2026-07-01 17:42:30,482 log Not Found: /api/payments/student_balance/
+WARNING 2026-07-01 17:42:45,687 log Unauthorized: /api/payments/overdue/
+WARNING 2026-07-01 17:42:48,051 log Conflict: /api/payments/
+WARNING 2026-07-01 17:42:49,189 log Bad Request: /api/payments/
+WARNING 2026-07-01 17:42:50,458 log Bad Request: /api/payments/
+WARNING 2026-07-01 17:42:51,727 log Bad Request: /api/payments/
+WARNING 2026-07-01 17:42:53,206 log Bad Request: /api/payments/
+WARNING 2026-07-01 17:42:54,387 log Bad Request: /api/payments/
+WARNING 2026-07-01 17:42:57,752 log Bad Request: /api/payments/
+WARNING 2026-07-01 17:43:00,123 log Bad Request: /api/payments/
+WARNING 2026-07-01 17:43:01,307 log Not Found: /api/payments/99999/
+WARNING 2026-07-01 17:43:03,593 log Unauthorized: /api/payments/
+WARNING 2026-07-01 17:43:08,616 log Unauthorized: /api/payments/receipts/
+WARNING 2026-07-01 17:43:14,609 log Not Found: /api/payments/receipts/99999/pdf/
+WARNING 2026-07-01 17:43:15,800 log Not Found: /api/payments/receipts/99999/
+WARNING 2026-07-01 17:43:36,340 log Unauthorized: /api/properties/explorer/
+ERROR 2026-07-01 17:45:46,079 log Internal Server Error: /api/occupancy/6/checkout/
+Traceback (most recent call last):
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/sqlite3/base.py", line 359, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.IntegrityError: CHECK constraint failed: ck_occupancy_end_date_after_start
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/core/handlers/base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/viewsets.py", line 125, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/apps/occupancy/views.py", line 99, in checkout
+    occupancy = OccupancyService.checkout_occupancy(occupancy.id)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/apps/occupancy/services/__init__.py", line 97, in checkout_occupancy
+    occupancy.save()
+  File "/home/david11/Karos_L/backend/apps/occupancy/models.py", line 77, in save
+    super().save(*args, **kwargs)
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 874, in save
+    self.save_base(
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 966, in save_base
+    updated = self._save_table(
+              ^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1110, in _save_table
+    results = self._do_update(
+              ^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1213, in _do_update
+    return filtered._update(values, returning_fields)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/query.py", line 1327, in _update
+    return query.get_compiler(self.db).execute_returning_sql(returning_fields)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/sql/compiler.py", line 2140, in execute_returning_sql
+    row_count = self.execute_sql(ROW_COUNT)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/sql/compiler.py", line 2111, in execute_sql
+    row_count = super().execute_sql(result_type)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/sql/compiler.py", line 1624, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/utils.py", line 94, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/sqlite3/base.py", line 359, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+django.db.utils.IntegrityError: CHECK constraint failed: ck_occupancy_end_date_after_start
+ERROR 2026-07-01 17:45:46,084 log "POST /api/occupancy/6/checkout/ HTTP/1.1" 500 200306
+WARNING 2026-07-01 17:53:51,528 log Conflict: /api/occupancy/
+WARNING 2026-07-01 17:53:52,592 log Conflict: /api/occupancy/
+WARNING 2026-07-01 17:53:53,679 log Conflict: /api/occupancy/
+WARNING 2026-07-01 17:53:54,736 log Conflict: /api/occupancy/
+WARNING 2026-07-01 17:53:55,807 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 17:53:56,868 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 17:54:00,106 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 17:54:01,181 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 17:54:02,234 log Not Found: /api/occupancy/99999/checkout/
+WARNING 2026-07-01 17:54:05,465 log Conflict: /api/occupancy/1/checkout/
+WARNING 2026-07-01 17:54:09,734 log Conflict: /api/occupancy/1/checkout/
+WARNING 2026-07-01 17:54:10,784 log Not Found: /api/occupancy/99999/
+WARNING 2026-07-01 17:54:13,983 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-07-01 17:54:16,100 log Unauthorized: /api/occupancy/
+WARNING 2026-07-01 17:54:17,274 log Not Found: /api/occupancy/99999/
+WARNING 2026-07-01 17:55:14,971 log Conflict: /api/occupancy/6/checkout/
+WARNING 2026-07-01 17:55:14,972 log "POST /api/occupancy/6/checkout/ HTTP/1.1" 409 46
+WARNING 2026-07-01 17:56:18,055 log Bad Request: /api/payments/
+WARNING 2026-07-01 17:56:18,056 log "POST /api/payments/ HTTP/1.1" 400 76
+ERROR 2026-07-01 17:56:24,010 log Internal Server Error: /api/payments/
+Traceback (most recent call last):
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/sqlite3/base.py", line 359, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.IntegrityError: NOT NULL constraint failed: payments_receipt.student_id_number
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/core/handlers/base.py", line 198, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/viewsets.py", line 125, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/rest_framework/views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/apps/payments/views.py", line 53, in create
+    payment = PaymentService.record_payment(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/apps/payments/services/__init__.py", line 113, in record_payment
+    PaymentService._generate_receipt(payment)
+  File "/home/david11/Karos_L/backend/apps/payments/services/__init__.py", line 157, in _generate_receipt
+    receipt.save()
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 874, in save
+    self.save_base(
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 966, in save_base
+    updated = self._save_table(
+              ^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1169, in _save_table
+    results = self._do_insert(
+              ^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1220, in _do_insert
+    return manager._insert(
+           ^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/query.py", line 1918, in _insert
+    return query.get_compiler(using=using).execute_sql(returning_fields)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/models/sql/compiler.py", line 1925, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/utils.py", line 94, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/david11/Karos_L/backend/venv/lib/python3.12/site-packages/django/db/backends/sqlite3/base.py", line 359, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+django.db.utils.IntegrityError: NOT NULL constraint failed: payments_receipt.student_id_number
+ERROR 2026-07-01 17:56:24,015 log "POST /api/payments/ HTTP/1.1" 500 201703
+WARNING 2026-07-01 17:57:36,973 log Bad Request: /api/payments/student_balance/
+WARNING 2026-07-01 17:57:38,058 log Not Found: /api/payments/student_balance/
+WARNING 2026-07-01 17:57:52,266 log Unauthorized: /api/payments/overdue/
+WARNING 2026-07-01 17:57:54,449 log Conflict: /api/payments/
+WARNING 2026-07-01 17:57:55,524 log Bad Request: /api/payments/
+WARNING 2026-07-01 17:57:57,717 log Bad Request: /api/payments/
+WARNING 2026-07-01 17:57:58,813 log Bad Request: /api/payments/
+WARNING 2026-07-01 17:57:59,885 log Bad Request: /api/payments/
+WARNING 2026-07-01 17:58:00,967 log Bad Request: /api/payments/
+WARNING 2026-07-01 17:58:04,187 log Bad Request: /api/payments/
+WARNING 2026-07-01 17:58:06,310 log Bad Request: /api/payments/
+WARNING 2026-07-01 17:58:07,380 log Not Found: /api/payments/99999/
+WARNING 2026-07-01 17:58:09,508 log Unauthorized: /api/payments/
+WARNING 2026-07-01 17:58:14,123 log Unauthorized: /api/payments/receipts/
+WARNING 2026-07-01 17:58:19,837 log Not Found: /api/payments/receipts/99999/pdf/
+WARNING 2026-07-01 17:58:20,906 log Not Found: /api/payments/receipts/99999/
+WARNING 2026-07-01 17:58:27,418 log Bad Request: /api/occupants/1/archive/
+WARNING 2026-07-01 17:58:31,728 log Bad Request: /api/occupants/
+WARNING 2026-07-01 17:58:33,881 log Bad Request: /api/occupants/
+WARNING 2026-07-01 17:58:34,968 log Bad Request: /api/occupants/
+WARNING 2026-07-01 17:58:37,120 log Unauthorized: /api/occupants/
+WARNING 2026-07-01 17:58:43,674 log Not Found: /api/occupants/99999/
+WARNING 2026-07-01 17:58:54,515 log Conflict: /api/occupancy/
+WARNING 2026-07-01 17:58:55,584 log Conflict: /api/occupancy/
+WARNING 2026-07-01 17:58:56,667 log Conflict: /api/occupancy/
+WARNING 2026-07-01 17:58:57,788 log Conflict: /api/occupancy/
+WARNING 2026-07-01 17:58:58,855 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 17:58:59,923 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 17:59:03,176 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 17:59:04,272 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 17:59:05,373 log Not Found: /api/occupancy/99999/checkout/
+WARNING 2026-07-01 17:59:08,687 log Conflict: /api/occupancy/1/checkout/
+WARNING 2026-07-01 17:59:13,124 log Conflict: /api/occupancy/1/checkout/
+WARNING 2026-07-01 17:59:14,203 log Not Found: /api/occupancy/99999/
+WARNING 2026-07-01 17:59:17,502 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-07-01 17:59:19,672 log Unauthorized: /api/occupancy/
+WARNING 2026-07-01 17:59:20,722 log Not Found: /api/occupancy/99999/
+WARNING 2026-07-01 18:15:17,972 log Bad Request: /api/payments/student_balance/
+WARNING 2026-07-01 18:15:19,096 log Not Found: /api/payments/student_balance/
+WARNING 2026-07-01 18:15:32,968 log Unauthorized: /api/payments/overdue/
+WARNING 2026-07-01 18:15:35,089 log Conflict: /api/payments/
+WARNING 2026-07-01 18:15:36,156 log Bad Request: /api/payments/
+WARNING 2026-07-01 18:15:38,291 log Bad Request: /api/payments/
+WARNING 2026-07-01 18:15:39,355 log Bad Request: /api/payments/
+WARNING 2026-07-01 18:15:40,412 log Bad Request: /api/payments/
+WARNING 2026-07-01 18:15:41,445 log Bad Request: /api/payments/
+WARNING 2026-07-01 18:15:44,661 log Bad Request: /api/payments/
+WARNING 2026-07-01 18:15:48,245 log Bad Request: /api/payments/
+WARNING 2026-07-01 18:15:49,287 log Not Found: /api/payments/99999/
+WARNING 2026-07-01 18:15:51,396 log Unauthorized: /api/payments/
+WARNING 2026-07-01 18:15:56,012 log Unauthorized: /api/payments/receipts/
+WARNING 2026-07-01 18:16:01,473 log Not Found: /api/payments/receipts/99999/pdf/
+WARNING 2026-07-01 18:16:02,523 log Not Found: /api/payments/receipts/99999/
+WARNING 2026-07-01 18:32:31,429 log Unauthorized: /api/backups/
+WARNING 2026-07-01 18:32:33,548 log Forbidden: /api/backups/
+WARNING 2026-07-01 18:32:37,778 log Bad Request: /api/backups/1/restore/
+WARNING 2026-07-01 18:32:55,724 log Bad Request: /api/backups/export/
+WARNING 2026-07-01 18:32:57,819 log Bad Request: /api/backups/export/
+WARNING 2026-07-01 18:33:04,676 log Unauthorized: /api/backups/export/
+WARNING 2026-07-01 18:33:07,227 log Forbidden: /api/backups/export/
+WARNING 2026-07-01 18:39:39,635 log Bad Request: /api/auth/login/
+WARNING 2026-07-01 18:39:41,768 log Bad Request: /api/auth/login/
+WARNING 2026-07-01 18:39:42,770 log Bad Request: /api/auth/login/
+WARNING 2026-07-01 18:39:49,093 log Unauthorized: /api/auth/logout/
+WARNING 2026-07-01 18:39:51,181 log Unauthorized: /api/auth/me/
+WARNING 2026-07-01 18:40:05,154 log Not Found: /api/admin/properties/99999/archive/
+WARNING 2026-07-01 18:40:07,393 log Conflict: /api/admin/properties/1/archive/
+WARNING 2026-07-01 18:40:09,583 log Conflict: /api/admin/sections/1/archive/
+WARNING 2026-07-01 18:40:11,708 log Not Found: /api/admin/units/99999/archive/
+WARNING 2026-07-01 18:40:13,911 log Bad Request: /api/admin/pricing-rules/
+WARNING 2026-07-01 18:40:16,044 log Bad Request: /api/admin/properties/
+WARNING 2026-07-01 18:40:18,148 log Bad Request: /api/admin/sections/
+WARNING 2026-07-01 18:40:20,277 log Bad Request: /api/admin/units/
+WARNING 2026-07-01 18:40:42,591 log Forbidden: /api/admin/properties/
+WARNING 2026-07-01 18:40:43,583 log Unauthorized: /api/admin/properties/
+WARNING 2026-07-01 18:40:55,875 log Unauthorized: /api/admin/users/
+WARNING 2026-07-01 18:41:08,233 log Unauthorized: /api/audit/
+WARNING 2026-07-01 18:41:10,239 log Forbidden: /api/audit/
+WARNING 2026-07-01 18:41:30,466 log Unauthorized: /api/backups/
+WARNING 2026-07-01 18:41:32,463 log Forbidden: /api/backups/
+WARNING 2026-07-01 18:41:36,462 log Bad Request: /api/backups/1/restore/
+WARNING 2026-07-01 18:41:54,047 log Bad Request: /api/backups/export/
+WARNING 2026-07-01 18:41:56,047 log Bad Request: /api/backups/export/
+WARNING 2026-07-01 18:42:02,671 log Unauthorized: /api/backups/export/
+WARNING 2026-07-01 18:42:05,052 log Forbidden: /api/backups/export/
+WARNING 2026-07-01 18:42:06,091 log Not Found: /api/occupants/99999/
+WARNING 2026-07-01 18:42:07,092 log Unauthorized: /api/occupants/
+WARNING 2026-07-01 18:42:08,091 log Bad Request: /api/occupants/
+WARNING 2026-07-01 18:42:14,540 log Unauthorized: /api/dashboard/
+WARNING 2026-07-01 18:42:16,581 log Conflict: /api/occupancy/
+WARNING 2026-07-01 18:42:17,608 log Conflict: /api/occupancy/
+WARNING 2026-07-01 18:42:18,626 log Conflict: /api/occupancy/
+WARNING 2026-07-01 18:42:19,623 log Conflict: /api/occupancy/
+WARNING 2026-07-01 18:42:20,684 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 18:42:21,683 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 18:42:24,781 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 18:42:25,781 log Bad Request: /api/occupancy/
+WARNING 2026-07-01 18:42:26,778 log Not Found: /api/occupancy/99999/checkout/
+WARNING 2026-07-01 18:42:29,830 log Conflict: /api/occupancy/1/checkout/
+WARNING 2026-07-01 18:42:33,879 log Conflict: /api/occupancy/1/checkout/
+WARNING 2026-07-01 18:42:34,878 log Not Found: /api/occupancy/99999/
+WARNING 2026-07-01 18:42:37,883 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-07-01 18:42:39,902 log Unauthorized: /api/occupancy/
+WARNING 2026-07-01 18:42:40,899 log Not Found: /api/occupancy/99999/
+WARNING 2026-07-01 18:42:42,921 log Bad Request: /api/occupants/1/archive/
+WARNING 2026-07-01 18:42:46,998 log Bad Request: /api/occupants/
+WARNING 2026-07-01 18:42:48,997 log Bad Request: /api/occupants/
+WARNING 2026-07-01 18:42:49,996 log Bad Request: /api/occupants/
+WARNING 2026-07-01 18:42:51,991 log Unauthorized: /api/occupants/
+WARNING 2026-07-01 18:42:58,204 log Not Found: /api/occupants/99999/
+WARNING 2026-07-01 18:43:10,254 log Bad Request: /api/payments/student_balance/
+WARNING 2026-07-01 18:43:11,253 log Not Found: /api/payments/student_balance/
+WARNING 2026-07-01 18:43:24,471 log Unauthorized: /api/payments/overdue/
+WARNING 2026-07-01 18:43:26,481 log Conflict: /api/payments/
+WARNING 2026-07-01 18:43:27,486 log Bad Request: /api/payments/
+WARNING 2026-07-01 18:43:29,492 log Bad Request: /api/payments/
+WARNING 2026-07-01 18:43:30,503 log Bad Request: /api/payments/
+WARNING 2026-07-01 18:43:31,505 log Bad Request: /api/payments/
+WARNING 2026-07-01 18:43:32,516 log Bad Request: /api/payments/
+WARNING 2026-07-01 18:43:35,533 log Bad Request: /api/payments/
+WARNING 2026-07-01 18:43:38,551 log Bad Request: /api/payments/
+WARNING 2026-07-01 18:43:39,562 log Not Found: /api/payments/99999/
+WARNING 2026-07-01 18:43:41,577 log Unauthorized: /api/payments/
+WARNING 2026-07-01 18:43:45,889 log Unauthorized: /api/payments/receipts/
+WARNING 2026-07-01 18:43:51,044 log Not Found: /api/payments/receipts/99999/pdf/
+WARNING 2026-07-01 18:43:52,042 log Not Found: /api/payments/receipts/99999/
+WARNING 2026-07-01 18:44:10,235 log Unauthorized: /api/properties/explorer/

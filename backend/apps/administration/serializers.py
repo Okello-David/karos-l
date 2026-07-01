@@ -73,7 +73,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "groups", "group_names",
             "date_joined", "last_login",
         ]
-        read_only_fields = ["date_joined", "last_login"]
+        read_only_fields = ["date_joined", "last_login", "is_superuser"]
 
     def create(self, validated_data):
         groups_data = validated_data.pop("groups", [])

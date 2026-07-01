@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.test import TestCase
 from rest_framework import status
@@ -14,6 +15,7 @@ from apps.sections.models import Section
 from apps.units.models import Unit
 
 from .models import Payment, Receipt
+from .services import PaymentService
 
 
 class PaymentAPITests(TestCase):
@@ -109,6 +111,33 @@ class PaymentAPITests(TestCase):
         response = self._record(student=99999)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_record_payment_for_student_without_id_number(self):
+        student = Student.objects.create(
+            first_name="Jane",
+            last_name="NoId",
+            email="jane.noid@example.com",
+        )
+        response = self._record(student=student.id, reference="REF-NOID")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        receipt = Payment.objects.get(id=response.data["id"]).receipt
+        self.assertEqual(receipt.student_id_number, "")
+
+    def test_record_payment_rolls_back_if_receipt_generation_fails(self):
+        with patch.object(
+            PaymentService, "_generate_receipt", side_effect=RuntimeError("boom")
+        ):
+            with self.assertRaises(RuntimeError):
+                PaymentService.record_payment(
+                    student_id=self.student.id,
+                    amount=Decimal("150000.00"),
+                    payment_date=date.today(),
+                    payment_method="cash",
+                    reference="REF-ROLLBACK",
+                )
+        self.assertFalse(
+            Payment.objects.filter(reference="REF-ROLLBACK").exists()
+        )
+
     def test_record_payment_duplicate_reference(self):
         self._record()
         response = self._record(reference="REF001")
@@ -196,6 +225,18 @@ class PaymentAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["count"], 1)
 
+    def test_list_payment_without_receipt(self):
+        Payment.objects.create(
+            student=self.student,
+            amount=Decimal("150000.00"),
+            payment_date=date.today(),
+            payment_method="cash",
+        )
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["results"][0]["receipt_id"], None)
+        self.assertEqual(response.data["results"][0]["receipt_number"], None)
+
     def test_list_filter_by_property(self):
         self._create_occupancy(student=self.student, unit=self.unit)
         self._record()
@@ -252,6 +293,21 @@ class PaymentAPITests(TestCase):
         # 45 days = 2 months (ceil(45/30) = 2)
         expected = self.unit.monthly_price * 2
         self.assertEqual(Decimal(response.data["total_charges"]), expected)
+
+    def test_balance_monthly_uses_snapshot_as_monthly_rate(self):
+        Occupancy.objects.create(
+            student=self.student,
+            unit=self.unit,
+            start_date=date.today() - timedelta(days=45),
+            billing_mode="monthly",
+            agreed_price=Decimal("180000.00"),
+        )
+        response = self.client.get(
+            f"{self.list_url}student_balance/",
+            {"student_id": self.student.id},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Decimal(response.data["total_charges"]), Decimal("360000.00"))
 
     def test_balance_with_payment(self):
         self._create_occupancy(billing_mode="semester")

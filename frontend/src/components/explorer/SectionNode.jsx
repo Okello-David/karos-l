@@ -20,7 +20,7 @@ function FolderIcon() {
   )
 }
 
-export default function SectionNode({ section }) {
+export default function SectionNode({ section, onSelectUnit }) {
   const [open, setOpen] = useState(false)
   const units = section.units || []
 
@@ -45,7 +45,7 @@ export default function SectionNode({ section }) {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 mt-2">
               {units.map((unit) => (
-                <UnitNode key={unit.id} unit={unit} />
+                <UnitNode key={unit.id} unit={unit} onSelect={onSelectUnit} />
               ))}
             </div>
           )}

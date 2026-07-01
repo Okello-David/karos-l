@@ -1,10 +1,23 @@
 import Card from '../Card'
+import { Skeleton } from '../Skeleton'
 
 function formatUGX(amount) {
   return 'UGX ' + amount.toLocaleString('en-UG')
 }
 
-export default function PaymentTable({ title, payments }) {
+export default function PaymentTable({ title, payments, loading = false }) {
+  if (loading) {
+    return (
+      <Card title={title}>
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-10" />
+          ))}
+        </div>
+      </Card>
+    )
+  }
+
   if (!payments || payments.length === 0) {
     return (
       <Card title={title}>

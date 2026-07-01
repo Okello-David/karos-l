@@ -74,10 +74,31 @@ class StudentAPITests(TestCase):
             national_id="",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["email"], "")
+        self.assertIsNone(response.data["email"])
         self.assertEqual(response.data["phone"], "")
-        self.assertEqual(response.data["student_id_number"], "")
-        self.assertEqual(response.data["national_id"], "")
+        self.assertIsNone(response.data["student_id_number"])
+        self.assertIsNone(response.data["national_id"])
+
+    def test_create_second_student_with_blank_optional_fields_does_not_crash(self):
+        first = self._create_student(
+            first_name="Jane",
+            last_name="Doe",
+            email="",
+            student_id_number="",
+            national_id="",
+        )
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        second = self._create_student(
+            first_name="John",
+            last_name="Smith",
+            email="",
+            student_id_number="",
+            national_id="",
+        )
+        self.assertEqual(second.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(second.data["email"])
+        self.assertIsNone(second.data["student_id_number"])
+        self.assertIsNone(second.data["national_id"])
 
     def test_create_student_unauthenticated(self):
         self.client.credentials()

@@ -31,15 +31,15 @@ export default function GlobalSearch({ open, onClose }) {
       setLoading(true)
       try {
         const [occupantsRes, receiptsRes, explorerRes] = await Promise.allSettled([
-          api.get(`/api/occupants/?search=${encodeURIComponent(query)}&page_size=5`),
-          api.get(`/api/receipts/?search=${encodeURIComponent(query)}&page_size=5`),
-          api.get(`/api/explorer/properties/?search=${encodeURIComponent(query)}`),
+          api.get(`/occupants/?search=${encodeURIComponent(query)}&page_size=5`),
+          api.get(`/payments/receipts/?search=${encodeURIComponent(query)}&page_size=5`),
+          api.get(`/properties/explorer/?search=${encodeURIComponent(query)}`),
         ])
 
         setResults({
           occupants: occupantsRes.status === 'fulfilled' ? occupantsRes.value.results || [] : [],
           receipts: receiptsRes.status === 'fulfilled' ? receiptsRes.value.results || [] : [],
-          properties: explorerRes.status === 'fulfilled' ? explorerRes.value.results || [] : [],
+          properties: explorerRes.status === 'fulfilled' ? explorerRes.value || [] : [],
         })
       } catch {
         setResults({ occupants: [], receipts: [], properties: [] })
