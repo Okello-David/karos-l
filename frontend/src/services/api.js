@@ -1,5 +1,13 @@
 const BASE_URL = '/api'
 
+function handleUnauthenticated() {
+  localStorage.removeItem('auth_token')
+  localStorage.removeItem('auth_user')
+  if (window.location.pathname !== '/login') {
+    window.location.assign('/login')
+  }
+}
+
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem('auth_token')
 
@@ -13,6 +21,11 @@ async function request(endpoint, options = {}) {
     ...options,
     headers,
   })
+
+  if (response.status === 401) {
+    handleUnauthenticated()
+    throw new Error('Your session has expired. Please log in again.')
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
@@ -37,6 +50,11 @@ async function requestBlob(endpoint, options = {}) {
       ...options.headers,
     },
   })
+
+  if (response.status === 401) {
+    handleUnauthenticated()
+    throw new Error('Your session has expired. Please log in again.')
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import MainLayout from './layouts/MainLayout'
+import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Explorer from './pages/Explorer'
 import Properties from './pages/Properties'
@@ -14,13 +15,15 @@ import Administration from './pages/Administration'
 import NotFound from './pages/NotFound'
 
 import ErrorBoundary from './components/ErrorBoundary'
+import RequireAuth from './components/RequireAuth'
 
 export default function App() {
   return (
     <BrowserRouter>
       <ErrorBoundary>
         <Routes>
-          <Route element={<MainLayout />}>
+          <Route path="login" element={<Login />} />
+          <Route element={<RequireAuth><MainLayout /></RequireAuth>}>
             <Route index element={<Dashboard />} />
             <Route path="explorer" element={<Explorer />} />
             <Route path="properties" element={<Properties />} />

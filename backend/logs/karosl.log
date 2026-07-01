@@ -2113,3 +2113,127 @@ WARNING 2026-07-01 18:43:45,889 log Unauthorized: /api/payments/receipts/
 WARNING 2026-07-01 18:43:51,044 log Not Found: /api/payments/receipts/99999/pdf/
 WARNING 2026-07-01 18:43:52,042 log Not Found: /api/payments/receipts/99999/
 WARNING 2026-07-01 18:44:10,235 log Unauthorized: /api/properties/explorer/
+WARNING 2026-07-01 18:56:35,008 log Method Not Allowed: /api/auth/login/
+WARNING 2026-07-01 18:56:35,009 log "GET /api/auth/login/ HTTP/1.1" 405 58
+WARNING 2026-07-01 18:56:35,137 log Method Not Allowed: /api/auth/login/
+WARNING 2026-07-01 18:56:35,138 log "GET /api/auth/login/ HTTP/1.1" 405 58
+WARNING 2026-07-01 18:57:32,917 log Unauthorized: /api/payments/
+WARNING 2026-07-01 18:57:32,920 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:32,928 log Unauthorized: /api/payments/overdue/
+WARNING 2026-07-01 18:57:32,936 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:32,933 log Unauthorized: /api/audit/
+WARNING 2026-07-01 18:57:32,942 log Unauthorized: /api/payments/
+WARNING 2026-07-01 18:57:32,949 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:32,950 log Unauthorized: /api/payments/
+WARNING 2026-07-01 18:57:32,959 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:32,960 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:32,957 log Unauthorized: /api/payments/
+WARNING 2026-07-01 18:57:32,965 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-07-01 18:57:32,974 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:32,967 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:32,973 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-07-01 18:57:32,977 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:32,986 log Unauthorized: /api/payments/overdue/
+WARNING 2026-07-01 18:57:32,987 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:33,002 log Unauthorized: /api/audit/
+WARNING 2026-07-01 18:57:33,005 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:33,019 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-07-01 18:57:33,026 log Unauthorized: /api/payments/overdue/
+WARNING 2026-07-01 18:57:33,023 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-07-01 18:57:33,035 log Unauthorized: /api/payments/overdue/
+WARNING 2026-07-01 18:57:33,032 log Unauthorized: /api/audit/
+WARNING 2026-07-01 18:57:33,039 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:33,043 log Unauthorized: /api/audit/
+WARNING 2026-07-01 18:57:33,040 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:33,040 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:33,045 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:33,046 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:33,048 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:48,138 log Unauthorized: /api/properties/explorer/
+WARNING 2026-07-01 18:57:48,140 log Unauthorized: /api/properties/explorer/
+WARNING 2026-07-01 18:57:48,141 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-07-01 18:57:48,142 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:05,170 log Unauthorized: /api/properties/explorer/
+WARNING 2026-07-01 19:01:05,172 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:05,177 log Unauthorized: /api/properties/explorer/
+WARNING 2026-07-01 19:01:05,178 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:11,246 log Unauthorized: /api/properties/explorer/
+WARNING 2026-07-01 19:01:11,247 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:11,792 log Unauthorized: /api/properties/explorer/
+WARNING 2026-07-01 19:01:11,792 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:12,074 log Unauthorized: /api/properties/explorer/
+WARNING 2026-07-01 19:01:12,074 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:12,445 log Unauthorized: /api/properties/explorer/
+WARNING 2026-07-01 19:01:12,445 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:12,725 log Unauthorized: /api/properties/explorer/
+WARNING 2026-07-01 19:01:12,726 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:15,767 log Unauthorized: /api/payments/receipts/
+WARNING 2026-07-01 19:01:15,767 log "GET /api/payments/receipts/?page=1&page_size=20 HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:15,776 log Unauthorized: /api/payments/receipts/
+WARNING 2026-07-01 19:01:15,777 log "GET /api/payments/receipts/?page=1&page_size=20 HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:20,154 log Unauthorized: /api/admin/properties/
+WARNING 2026-07-01 19:01:20,155 log "GET /api/admin/properties/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:20,163 log Unauthorized: /api/admin/properties/
+WARNING 2026-07-01 19:01:20,164 log "GET /api/admin/properties/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:29,560 log Unauthorized: /api/admin/properties/
+WARNING 2026-07-01 19:01:29,565 log Unauthorized: /api/admin/sections/
+WARNING 2026-07-01 19:01:29,568 log Unauthorized: /api/admin/properties/
+WARNING 2026-07-01 19:01:29,571 log "GET /api/admin/properties/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:29,571 log "GET /api/admin/sections/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:29,572 log "GET /api/admin/properties/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:29,581 log Unauthorized: /api/admin/sections/
+WARNING 2026-07-01 19:01:29,582 log "GET /api/admin/sections/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:30,710 log Unauthorized: /api/admin/properties/
+WARNING 2026-07-01 19:01:30,713 log Unauthorized: /api/admin/sections/
+WARNING 2026-07-01 19:01:30,716 log Unauthorized: /api/admin/units/
+WARNING 2026-07-01 19:01:30,724 log Unauthorized: /api/admin/sections/
+WARNING 2026-07-01 19:01:30,724 log "GET /api/admin/properties/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:30,728 log "GET /api/admin/units/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:30,726 log Unauthorized: /api/admin/properties/
+WARNING 2026-07-01 19:01:30,732 log "GET /api/admin/sections/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:30,729 log "GET /api/admin/sections/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:30,735 log "GET /api/admin/properties/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:30,745 log Unauthorized: /api/admin/units/
+WARNING 2026-07-01 19:01:30,746 log "GET /api/admin/units/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:33,386 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-07-01 19:01:33,388 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:33,393 log Unauthorized: /api/payments/
+WARNING 2026-07-01 19:01:33,399 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:33,398 log Unauthorized: /api/payments/overdue/
+WARNING 2026-07-01 19:01:33,400 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:33,414 log Unauthorized: /api/payments/
+WARNING 2026-07-01 19:01:33,417 log Unauthorized: /api/audit/
+WARNING 2026-07-01 19:01:33,428 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:33,418 log Unauthorized: /api/payments/overdue/
+WARNING 2026-07-01 19:01:33,426 log Unauthorized: /api/audit/
+WARNING 2026-07-01 19:01:33,427 log "GET /api/payments/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:33,422 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-07-01 19:01:33,431 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:33,429 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:33,429 log "GET /api/audit/?page_size=5 HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:36,042 log Unauthorized: /api/payments/
+WARNING 2026-07-01 19:01:36,044 log Unauthorized: /api/payments/overdue/
+WARNING 2026-07-01 19:01:36,046 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-07-01 19:01:36,048 log Unauthorized: /api/payments/overdue/
+WARNING 2026-07-01 19:01:36,050 log Unauthorized: /api/occupancy/summary/
+WARNING 2026-07-01 19:01:36,051 log "GET /api/payments/?page=1&page_size=20 HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:36,052 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:36,053 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:36,055 log "GET /api/occupancy/summary/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:36,053 log "GET /api/payments/overdue/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:01:36,063 log Unauthorized: /api/payments/
+WARNING 2026-07-01 19:01:36,063 log "GET /api/payments/?page=1&page_size=20 HTTP/1.1" 401 76
+WARNING 2026-07-01 19:03:29,278 log Unauthorized: /api/occupants/
+WARNING 2026-07-01 19:03:29,282 log "GET /api/occupants/?page=1 HTTP/1.1" 401 76
+WARNING 2026-07-01 19:03:29,291 log Unauthorized: /api/occupants/
+WARNING 2026-07-01 19:03:29,292 log "GET /api/occupants/?page=1 HTTP/1.1" 401 76
+WARNING 2026-07-01 19:03:32,980 log Unauthorized: /api/properties/explorer/
+WARNING 2026-07-01 19:03:32,983 log Unauthorized: /api/properties/explorer/
+WARNING 2026-07-01 19:03:32,984 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:03:32,985 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:03:34,900 log Unauthorized: /api/properties/explorer/
+WARNING 2026-07-01 19:03:34,908 log Unauthorized: /api/properties/explorer/
+WARNING 2026-07-01 19:03:34,909 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:03:34,911 log "GET /api/properties/explorer/ HTTP/1.1" 401 76
+WARNING 2026-07-01 19:04:28,109 log Unauthorized: /api/properties/explorer/
+WARNING 2026-07-01 19:04:28,110 log "GET /api/properties/explorer/ HTTP/1.1" 401 76

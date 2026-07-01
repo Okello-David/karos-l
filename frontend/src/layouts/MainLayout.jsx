@@ -58,7 +58,7 @@ export default function MainLayout() {
 
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 lg:flex">
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary-600 focus:text-white focus:rounded-lg focus:shadow-lg"
@@ -68,7 +68,7 @@ export default function MainLayout() {
 
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-        <div className="lg:pl-64 flex flex-col min-h-screen">
+        <div className="flex flex-col min-h-screen lg:flex-1 lg:min-w-0">
           <Topbar
             title={title}
             pathname={location.pathname}

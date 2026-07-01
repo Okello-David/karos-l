@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import Breadcrumb from './Breadcrumb'
+import { authService } from '../services/auth'
 
 const staticBreadcrumbMap = {
   '/': [{ label: 'Overview' }],
@@ -17,6 +18,16 @@ const staticBreadcrumbMap = {
 
 export default function Topbar({ title, onMenuClick }) {
   const location = useLocation()
+  const navigate = useNavigate()
+  const user = authService.getUser()
+  const initials = user
+    ? (user.first_name?.[0] || user.username?.[0] || '?').toUpperCase()
+    : '?'
+
+  const handleLogout = async () => {
+    await authService.logout()
+    navigate('/login', { replace: true })
+  }
 
   const breadcrumbItems = useMemo(() => {
     const staticMatch = staticBreadcrumbMap[location.pathname]
@@ -65,10 +76,16 @@ export default function Topbar({ title, onMenuClick }) {
           <span>+</span>
           <span>K</span>
         </kbd>
-        <span className="text-sm text-gray-500">Property Manager</span>
+        <span className="text-sm text-gray-500">{user?.username || 'Property Manager'}</span>
         <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-sm">
-          PM
+          {initials}
         </div>
+        <button
+          onClick={handleLogout}
+          className="text-sm text-gray-500 hover:text-gray-700 font-medium"
+        >
+          Log out
+        </button>
       </div>
     </header>
   )
