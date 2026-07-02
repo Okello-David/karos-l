@@ -1,13 +1,16 @@
 import { useState } from 'react'
-import { useNavigate, Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import PageContainer from '../components/PageContainer'
 import Card from '../components/Card'
 import Button from '../components/Button'
 import { Skeleton } from '../components/Skeleton'
 import EmptyState from '../components/EmptyState'
 import PaymentDetailDialog from '../components/PaymentDetailDialog'
+import OccupantPickerDialog from '../components/OccupantPickerDialog'
+import RecordPaymentDialog from '../components/RecordPaymentDialog'
 import { usePayments, useOverdueStudents } from '../hooks/usePayments'
 import { useOccupancySummary } from '../hooks/useOccupancy'
+import { formatUGX } from '../utils/format'
 
 const methodLabels = {
   cash: 'Cash',
@@ -16,7 +19,6 @@ const methodLabels = {
 }
 
 export default function Payments() {
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [methodFilter, setMethodFilter] = useState('')
@@ -35,15 +37,28 @@ export default function Payments() {
   params.page_size = 20
 
   const { data: payments, loading, error, refetch } = usePayments(params)
-  const { data: overdue } = useOverdueStudents()
+  const { data: overdue, refetch: refetchOverdue } = useOverdueStudents()
   const { data: summary } = useOccupancySummary()
 
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailPayment, setDetailPayment] = useState(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [recordOccupant, setRecordOccupant] = useState(null)
 
   const handleViewDetail = (payment) => {
     setDetailPayment(payment)
     setDetailOpen(true)
+  }
+
+  const handleOccupantSelected = (occupant) => {
+    setPickerOpen(false)
+    setRecordOccupant(occupant)
+  }
+
+  const handlePaymentRecorded = () => {
+    setRecordOccupant(null)
+    refetch()
+    refetchOverdue()
   }
 
   const handleSearch = (e) => {
@@ -73,7 +88,7 @@ export default function Payments() {
         <Card>
           <p className="text-sm text-gray-500">Total Collected</p>
           <p className="text-3xl font-bold text-gray-900 mt-2">
-            UGX {totalCollected.toLocaleString('en-UG')}
+            {formatUGX(totalCollected)}
           </p>
           <p className="text-xs text-gray-400 mt-1">
             From {payments?.count || 0} payments
@@ -106,7 +121,7 @@ export default function Payments() {
             >
               View Receipts &rarr;
             </Link>
-            <Button onClick={() => navigate('/occupants')}>Choose Occupant</Button>
+            <Button onClick={() => setPickerOpen(true)}>Record Payment</Button>
           </div>
         </div>
 
@@ -183,10 +198,10 @@ export default function Payments() {
                   <tr className="border-b border-gray-200">
                     <th className="text-left py-3 px-6 font-medium text-gray-500">Occupant</th>
                     <th className="text-left py-3 px-6 font-medium text-gray-500">Amount</th>
-                    <th className="text-left py-3 px-6 font-medium text-gray-500">Date</th>
-                    <th className="text-left py-3 px-6 font-medium text-gray-500">Method</th>
-                    <th className="text-left py-3 px-6 font-medium text-gray-500">Reference</th>
-                    <th className="text-left py-3 px-6 font-medium text-gray-500">Notes</th>
+                    <th className="text-left py-3 px-6 font-medium text-gray-500 hidden sm:table-cell">Date</th>
+                    <th className="text-left py-3 px-6 font-medium text-gray-500 hidden md:table-cell">Method</th>
+                    <th className="text-left py-3 px-6 font-medium text-gray-500 hidden lg:table-cell">Reference</th>
+                    <th className="text-left py-3 px-6 font-medium text-gray-500 hidden xl:table-cell">Notes</th>
                     <th className="text-left py-3 px-6 font-medium text-gray-500" />
                   </tr>
                 </thead>
@@ -199,14 +214,14 @@ export default function Payments() {
                     >
                       <td className="py-3 px-6 text-gray-900 font-medium">{p.student_name}</td>
                       <td className="py-3 px-6 text-gray-900">
-                        UGX {Number(p.amount).toLocaleString('en-UG')}
+                        {formatUGX(p.amount)}
                       </td>
-                      <td className="py-3 px-6 text-gray-500">
+                      <td className="py-3 px-6 text-gray-500 hidden sm:table-cell">
                         {new Date(p.payment_date).toLocaleDateString()}
                       </td>
-                      <td className="py-3 px-6 text-gray-500">{methodLabels[p.payment_method] || p.payment_method}</td>
-                      <td className="py-3 px-6 text-gray-500">{p.reference || '—'}</td>
-                      <td className="py-3 px-6 text-gray-500 max-w-[150px] truncate">{p.notes || '—'}</td>
+                      <td className="py-3 px-6 text-gray-500 hidden md:table-cell">{methodLabels[p.payment_method] || p.payment_method}</td>
+                      <td className="py-3 px-6 text-gray-500 hidden lg:table-cell">{p.reference || '—'}</td>
+                      <td className="py-3 px-6 text-gray-500 max-w-[150px] truncate hidden xl:table-cell">{p.notes || '—'}</td>
                       <td className="py-3 px-6">
                         <button
                           onClick={(e) => { e.stopPropagation(); handleViewDetail(p) }}
@@ -269,7 +284,7 @@ export default function Payments() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-red-600">
-                      UGX {Number(item.balance).toLocaleString('en-UG')}
+                      {formatUGX(item.balance)}
                     </p>
                   </div>
                 </div>
@@ -294,7 +309,7 @@ export default function Payments() {
                 <div key={method} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                   <span className="text-sm text-gray-700">{methodLabels[method]}</span>
                   <span className="text-sm text-gray-500">
-                    {count} payments &middot; UGX {total.toLocaleString('en-UG')}
+                    {count} payments &middot; {formatUGX(total)}
                   </span>
                 </div>
               )
@@ -307,6 +322,20 @@ export default function Payments() {
         open={detailOpen}
         payment={detailPayment}
         onClose={() => setDetailOpen(false)}
+      />
+
+      {pickerOpen && (
+        <OccupantPickerDialog
+          onClose={() => setPickerOpen(false)}
+          onSelect={handleOccupantSelected}
+        />
+      )}
+
+      <RecordPaymentDialog
+        open={!!recordOccupant}
+        occupant={recordOccupant}
+        onClose={() => setRecordOccupant(null)}
+        onRecorded={handlePaymentRecorded}
       />
     </PageContainer>
   )

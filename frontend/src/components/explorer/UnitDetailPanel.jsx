@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useUnitDetail } from '../../hooks/useExplorer'
 import Spinner from '../Spinner'
+import { formatUGX } from '../../utils/format'
 
 function CloseIcon() {
   return (
@@ -9,12 +10,6 @@ function CloseIcon() {
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
     </svg>
   )
-}
-
-function formatUGX(amount) {
-  const num = parseFloat(amount)
-  if (isNaN(num)) return '—'
-  return 'UGX ' + num.toLocaleString('en-UG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function formatDate(dateStr) {
@@ -151,7 +146,7 @@ export default function UnitDetailPanel({ unitId, onClose }) {
                             View Occupant
                           </button>
                           <button
-                            onClick={() => navigate(`/occupants/${occ.id}`)}
+                            onClick={() => navigate(`/occupants/${occ.id}?recordPayment=1`)}
                             className="text-xs text-primary-600 hover:text-primary-700 font-medium"
                           >
                             Record Payment

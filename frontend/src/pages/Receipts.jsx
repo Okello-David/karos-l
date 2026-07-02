@@ -6,6 +6,7 @@ import { Skeleton } from '../components/Skeleton'
 import EmptyState from '../components/EmptyState'
 import { useReceipts } from '../hooks/usePayments'
 import { paymentsService } from '../services/payments'
+import { formatUGX } from '../utils/format'
 
 export default function Receipts() {
   const [search, setSearch] = useState('')
@@ -107,9 +108,9 @@ export default function Receipts() {
                     <th className="text-left py-3 px-6 font-medium text-gray-500">Receipt #</th>
                     <th className="text-left py-3 px-6 font-medium text-gray-500">Occupant</th>
                     <th className="text-left py-3 px-6 font-medium text-gray-500">Amount</th>
-                    <th className="text-left py-3 px-6 font-medium text-gray-500">Date</th>
-                    <th className="text-left py-3 px-6 font-medium text-gray-500">Method</th>
-                    <th className="text-left py-3 px-6 font-medium text-gray-500">Unit</th>
+                    <th className="text-left py-3 px-6 font-medium text-gray-500 hidden sm:table-cell">Date</th>
+                    <th className="text-left py-3 px-6 font-medium text-gray-500 hidden md:table-cell">Method</th>
+                    <th className="text-left py-3 px-6 font-medium text-gray-500 hidden lg:table-cell">Unit</th>
                     <th className="text-left py-3 px-6 font-medium text-gray-500" />
                   </tr>
                 </thead>
@@ -124,13 +125,13 @@ export default function Receipts() {
                       </td>
                       <td className="py-3 px-6 text-gray-900 font-medium">{r.student_name}</td>
                       <td className="py-3 px-6 text-gray-900">
-                        UGX {Number(r.amount).toLocaleString('en-UG')}
+                        {formatUGX(r.amount)}
                       </td>
-                      <td className="py-3 px-6 text-gray-500">
+                      <td className="py-3 px-6 text-gray-500 hidden sm:table-cell">
                         {new Date(r.payment_date).toLocaleDateString()}
                       </td>
-                      <td className="py-3 px-6 text-gray-500 capitalize">{r.payment_method}</td>
-                      <td className="py-3 px-6 text-gray-500">{r.unit_name || '—'}</td>
+                      <td className="py-3 px-6 text-gray-500 capitalize hidden md:table-cell">{r.payment_method}</td>
+                      <td className="py-3 px-6 text-gray-500 hidden lg:table-cell">{r.unit_name || '—'}</td>
                       <td className="py-3 px-6">
                         <button
                           type="button"

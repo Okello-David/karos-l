@@ -17,13 +17,16 @@ class StudentService:
             queryset = queryset.filter(is_active=False)
 
         if search:
-            queryset = queryset.filter(
-                Q(first_name__icontains=search)
-                | Q(last_name__icontains=search)
-                | Q(phone__icontains=search)
-                | Q(student_id_number__icontains=search)
-                | Q(national_id__icontains=search)
-            )
+            combined_q = Q()
+            for token in search.split():
+                combined_q &= (
+                    Q(first_name__icontains=token)
+                    | Q(last_name__icontains=token)
+                    | Q(phone__icontains=token)
+                    | Q(student_id_number__icontains=token)
+                    | Q(national_id__icontains=token)
+                )
+            queryset = queryset.filter(combined_q)
 
         queryset = queryset.order_by("last_name", "first_name")
 

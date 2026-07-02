@@ -1,5 +1,7 @@
 export function formatUGX(amount) {
-  return 'UGX ' + amount.toLocaleString('en-UG')
+  const num = Number(amount)
+  if (isNaN(num)) return '—'
+  return 'UGX ' + num.toLocaleString('en-UG')
 }
 
 export function formatPhone(phone) {

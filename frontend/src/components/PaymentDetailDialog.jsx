@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Button from './Button'
 import { paymentsService } from '../services/payments'
+import { formatUGX } from '../utils/format'
 
 export default function PaymentDetailDialog({ open, payment, onClose }) {
   const [pdfError, setPdfError] = useState(null)
@@ -50,7 +51,7 @@ export default function PaymentDetailDialog({ open, payment, onClose }) {
         <div className="bg-primary-50 rounded-xl px-5 py-6 text-center">
           <p className="text-sm text-gray-500 mb-1">Amount</p>
           <p className="text-3xl font-bold text-primary-700">
-            UGX {Number(payment.amount).toLocaleString('en-UG')}
+            {formatUGX(payment.amount)}
           </p>
         </div>
 

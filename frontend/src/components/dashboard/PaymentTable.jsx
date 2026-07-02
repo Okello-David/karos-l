@@ -1,9 +1,6 @@
 import Card from '../Card'
 import { Skeleton } from '../Skeleton'
-
-function formatUGX(amount) {
-  return 'UGX ' + amount.toLocaleString('en-UG')
-}
+import { formatUGX } from '../../utils/format'
 
 export default function PaymentTable({ title, payments, loading = false }) {
   if (loading) {

@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { authService } from '../services/auth'
 
 function HomeIcon({ className }) {
   return (
@@ -86,6 +87,15 @@ const navigation = [
 ]
 
 export default function Sidebar({ open, onClose }) {
+  const user = authService.getUser()
+  const initials = user
+    ? (user.first_name?.[0] || user.username?.[0] || '?').toUpperCase()
+    : '?'
+  const displayName = user
+    ? [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || 'Signed in user'
+    : 'Signed in user'
+  const displaySubtitle = user?.email || 'Account'
+
   return (
     <>
       {open && (
@@ -143,11 +153,11 @@ export default function Sidebar({ open, onClose }) {
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center gap-3 px-4 py-3">
             <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-sm">
-              PM
+              {initials}
             </div>
             <div className="text-sm">
-              <p className="font-medium text-gray-900">Property Manager</p>
-              <p className="text-gray-500">manager@karosl.com</p>
+              <p className="font-medium text-gray-900">{displayName}</p>
+              <p className="text-gray-500">{displaySubtitle}</p>
             </div>
           </div>
         </div>

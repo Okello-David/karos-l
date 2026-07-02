@@ -264,7 +264,7 @@ export default function AssignOccupancyDialog({ open, occupant, onClose, onAssig
           <div className="border-t border-gray-200 pt-4 space-y-4">
             <p className="text-sm font-semibold text-gray-900">Confirm Assignment</p>
 
-            <div className="grid grid-cols-2 gap-3 text-sm bg-gray-50 rounded-lg p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm bg-gray-50 rounded-lg p-4">
               <div>
                 <p className="text-gray-500 text-xs">Occupant</p>
                 <p className="font-medium text-gray-900">{occupant?.full_name}</p>
@@ -283,7 +283,7 @@ export default function AssignOccupancyDialog({ open, occupant, onClose, onAssig
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label htmlFor="start-date" className="block text-sm font-medium text-gray-700 mb-1">
                   Start Date

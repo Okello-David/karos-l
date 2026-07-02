@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import PageContainer from '../components/PageContainer'
 import Card from '../components/Card'
 import Button from '../components/Button'
@@ -14,6 +14,7 @@ import { useStudentBalance, useStudentPaymentHistory } from '../hooks/usePayment
 import { occupantsService } from '../services/occupants'
 import { occupancyService } from '../services/occupancy'
 import { useToast } from '../components/Toast'
+import { formatUGX } from '../utils/format'
 
 const methodLabels = {
   cash: 'Cash',
@@ -23,6 +24,7 @@ const methodLabels = {
 
 export default function OccupantDetail() {
   const { id } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { addToast } = useToast()
   const { data: occupant, loading, error, refetch } = useOccupant(id)
   const { data: activeOccupancy, loading: occLoading, refetch: refetchOcc } = useActiveOccupancy(id)
@@ -85,6 +87,15 @@ export default function OccupantDetail() {
     refetchBal()
     refetchPmt()
   }
+
+  useEffect(() => {
+    if (occupant?.is_active && searchParams.get('recordPayment')) {
+      setRecordPmtOpen(true)
+      const next = new URLSearchParams(searchParams)
+      next.delete('recordPayment')
+      setSearchParams(next, { replace: true })
+    }
+  }, [occupant, searchParams, setSearchParams])
 
   if (loading) {
     return (
@@ -188,21 +199,19 @@ export default function OccupantDetail() {
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-500">Amount Due</p>
                   <p className="text-xl font-bold text-gray-900 mt-1">
-                    UGX {totalCharges.toLocaleString('en-UG')}
+                    {formatUGX(totalCharges)}
                   </p>
                 </div>
                 <div className="text-center p-4 bg-emerald-50 rounded-lg">
                   <p className="text-sm text-gray-500">Total Paid</p>
                   <p className="text-xl font-bold text-emerald-600 mt-1">
-                    UGX {totalPaid.toLocaleString('en-UG')}
+                    {formatUGX(totalPaid)}
                   </p>
                 </div>
                 <div className="text-center p-4 bg-red-50 rounded-lg">
                   <p className="text-sm text-gray-500">Outstanding</p>
                   <p className={`text-xl font-bold mt-1 ${balanceNum > 0 ? 'text-red-600' : 'text-gray-900'}`}>
-                    {balanceNum > 0
-                      ? `UGX ${balanceNum.toLocaleString('en-UG')}`
-                      : 'UGX 0'}
+                    {formatUGX(balanceNum)}
                   </p>
                 </div>
               </div>
@@ -244,7 +253,7 @@ export default function OccupantDetail() {
                           {new Date(p.payment_date).toLocaleDateString()}
                         </td>
                         <td className="py-2.5 px-6 text-gray-900 font-medium whitespace-nowrap">
-                          UGX {Number(p.amount).toLocaleString('en-UG')}
+                          {formatUGX(p.amount)}
                         </td>
                         <td className="py-2.5 px-6 text-gray-500 whitespace-nowrap">
                           {methodLabels[p.payment_method] || p.payment_method}

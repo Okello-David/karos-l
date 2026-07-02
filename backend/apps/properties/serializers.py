@@ -70,4 +70,4 @@ class PropertyExplorerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Property
-        fields = ["id", "name", "code", "sections"]
+        fields = ["id", "name", "code", "is_active", "sections"]

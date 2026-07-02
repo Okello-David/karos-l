@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+### Fixed — Release Candidate Verification Pass
+- Occupant search returned zero results when searching a person's full name (e.g. "Jane Doe") instead of a single word — only single-word searches worked, because the search matched each field independently rather than as a combined name. Now matches correctly regardless of word order or count. See BUG-026.
+- The same full-name search bug existed in Payments search. Fixed identically. See BUG-027.
+- Dashboard's own "Record Payment" quick action still dead-ended through the unrelated Occupants list, unlike the Payments page's already-fixed direct entry point. Now opens the same occupant picker and payment dialog as the Payments page. See BUG-028.
+
+### Added — RC Stabilization: UI Workflow Completeness & Consistency Pass (from UI/UX Audit)
+- Payments page now has a direct "Record Payment" action: click it, pick an occupant from a searchable list, and the existing payment form opens pre-filled with that occupant — no more dead end through the Occupants list. See BUG-021.
+
+### Fixed — RC Stabilization: UI Workflow Completeness & Consistency Pass (from UI/UX Audit)
+- Dashboard's Recent Payments table always showed "—" for Property because the payments API didn't expose it at all. Now shows the real property name when available, or "Property not specified" for the rare payment recorded before a unit was assigned. See BUG-022.
+- Consolidated every duplicated/inline `formatUGX` currency-formatting implementation across the app into the one shared utility, fixing an inconsistency where one screen (Explorer's unit panel) always showed 2 decimal places while everywhere else in the app didn't. Display-only change; no calculations were touched. See BUG-023.
+- `EmptyState` icons now match the stroke-width used by the rest of the app's icon set. See BUG-024.
+- The breadcrumb's fallback label for unmapped routes is now derived from the actual page path instead of a generic "Page" placeholder. See BUG-025.
+
+### Removed — RC Stabilization: UI Workflow Completeness & Consistency Pass (from UI/UX Audit)
+- Deleted three confirmed-unused UI files after a full-codebase reference search found zero imports, routes, or references to any of them: `pages/Settings.jsx`, `components/dashboard/ActionCard.jsx`, `components/dashboard/ActivityCard.jsx`.
+
+### Fixed — RC Stabilization: Responsive UI Consistency Pass (from UI/UX Audit)
+- Payments and Receipts tables had no responsive column hiding (7 columns each, forcing horizontal scroll on mobile). Applied the same tiered `hidden sm:/md:/lg:/xl:table-cell` pattern already used on the Occupants table, keeping the highest-priority columns and the action column visible at every width. See BUG-017.
+- Administration's 6-tab navigation had no overflow handling on narrow screens. Added horizontal scroll (matching the app's existing table overflow convention) so all tabs remain reachable and the active tab stays clearly indicated after scrolling. See BUG-018.
+- Administration's Units and Users tables (7 and 6 columns) had no responsive column hiding. Applied the same tiered pattern, keeping identity, status, and action columns visible at every width. See BUG-019.
+- `AssignOccupancyDialog`'s confirmation summary and date/billing fields used a fixed 2-column grid that was cramped on the smallest phone widths. Now single-column below `sm` (640px) and 2-column above, matching the same breakpoint already used for equivalent layouts elsewhere in the app. See BUG-020.
+
+### Fixed — RC Stabilization: UI Trust Fixes (from UI/UX Audit)
+- Explorer unit panel's "Record Payment" action routed to the occupant profile instead of a payment form (it called the same handler as "View Occupant"). Now routes with occupant context preserved and auto-opens the existing payment recording dialog on the occupant profile. See BUG-014.
+- Sidebar showed a hardcoded fake user ("Property Manager" / manager@karosl.com), disagreeing with the real logged-in user shown in the Topbar. Sidebar now reads the same authenticated user as the Topbar. See BUG-015.
+- Properties page always displayed "Active" status regardless of the property's actual state. The API backing the page did not expose the `is_active` field; added it and the page now renders a real Active/Archived badge. See BUG-016.
+
 ### Added
 - Project foundation: Django backend with DRF, CORS, env support, custom User model, 8 apps
 - Project documentation: VISION, REQUIREMENTS, DATABASE, WORKFLOWS, ROADMAP, CHANGELOG, MEETING_NOTES

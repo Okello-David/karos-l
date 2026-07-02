@@ -50,7 +50,13 @@ export default function Topbar({ title, onMenuClick }) {
       ]
     }
 
-    return [{ label: 'Page' }]
+    const segments = location.pathname.split('/').filter(Boolean)
+    const lastSegment = segments[segments.length - 1]
+    const derivedLabel = lastSegment
+      ? lastSegment.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+      : 'Home'
+
+    return [{ label: derivedLabel }]
   }, [location.pathname])
 
   return (

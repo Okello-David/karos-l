@@ -8,6 +8,7 @@ class PaymentSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
     receipt_id = serializers.SerializerMethodField()
     receipt_number = serializers.SerializerMethodField()
+    property_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Payment
@@ -22,6 +23,7 @@ class PaymentSerializer(serializers.ModelSerializer):
             "notes",
             "receipt_id",
             "receipt_number",
+            "property_name",
             "created_at",
             "updated_at",
         ]
@@ -39,6 +41,12 @@ class PaymentSerializer(serializers.ModelSerializer):
     def get_receipt_number(self, obj):
         try:
             return obj.receipt.receipt_number
+        except ObjectDoesNotExist:
+            return None
+
+    def get_property_name(self, obj):
+        try:
+            return obj.receipt.property_name
         except ObjectDoesNotExist:
             return None
 

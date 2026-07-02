@@ -104,7 +104,17 @@ export default function Properties() {
                       <td className="py-3 px-4 text-gray-900 font-medium">{property.name}</td>
                       <td className="py-3 px-4 text-gray-500 font-mono text-xs">{property.code || '—'}</td>
                       <td className="py-3 px-4 text-gray-500">{unitCount}</td>
-                      <td className="py-3 px-4 text-gray-500">Active</td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            property.is_active
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {property.is_active ? 'Active' : 'Archived'}
+                        </span>
+                      </td>
                     </tr>
                   )
                 })

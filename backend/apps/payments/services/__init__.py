@@ -39,12 +39,15 @@ class PaymentService:
         queryset = Payment.objects.select_related("student")
 
         if search:
-            queryset = queryset.filter(
-                Q(student__first_name__icontains=search)
-                | Q(student__last_name__icontains=search)
-                | Q(student__student_id_number__icontains=search)
-                | Q(reference__icontains=search)
-            )
+            combined_q = Q()
+            for token in search.split():
+                combined_q &= (
+                    Q(student__first_name__icontains=token)
+                    | Q(student__last_name__icontains=token)
+                    | Q(student__student_id_number__icontains=token)
+                    | Q(reference__icontains=token)
+                )
+            queryset = queryset.filter(combined_q)
 
         if property_id:
             student_ids = (

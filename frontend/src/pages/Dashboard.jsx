@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageContainer from '../components/PageContainer'
 import Card from '../components/Card'
@@ -7,6 +8,8 @@ import { Skeleton, CardSkeleton } from '../components/Skeleton'
 import StatisticCard from '../components/dashboard/StatisticCard'
 import PropertySummaryCard from '../components/dashboard/PropertySummaryCard'
 import PaymentTable from '../components/dashboard/PaymentTable'
+import OccupantPickerDialog from '../components/OccupantPickerDialog'
+import RecordPaymentDialog from '../components/RecordPaymentDialog'
 import { useOccupancySummary } from '../hooks/useOccupancy'
 import { usePayments, useOverdueStudents } from '../hooks/usePayments'
 import { useAuditLogs } from '../hooks/useAudit'
@@ -15,16 +18,29 @@ import { formatUGX } from '../utils/format'
 export default function Dashboard() {
   const navigate = useNavigate()
   const { data: summary, loading: occLoading } = useOccupancySummary()
-  const { data: recentPayments, loading: pmtLoading } = usePayments({ page_size: 5 })
-  const { data: overdue } = useOverdueStudents()
+  const { data: recentPayments, loading: pmtLoading, refetch: refetchPayments } = usePayments({ page_size: 5 })
+  const { data: overdue, refetch: refetchOverdue } = useOverdueStudents()
   const { data: activity, loading: actLoading, error: actError } = useAuditLogs({ page_size: 5 })
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [recordOccupant, setRecordOccupant] = useState(null)
+
+  const handleOccupantSelected = (occupant) => {
+    setPickerOpen(false)
+    setRecordOccupant(occupant)
+  }
+
+  const handlePaymentRecorded = () => {
+    setRecordOccupant(null)
+    refetchPayments()
+    refetchOverdue()
+  }
 
   const livePayments = recentPayments?.results?.map((p) => ({
     id: p.id,
     occupant: p.student_name,
     amount: Number(p.amount),
     date: new Date(p.payment_date).toLocaleDateString('en-UG', { day: 'numeric', month: 'short', year: 'numeric' }),
-    property: '—',
+    property: p.property_name || 'Property not specified',
   })) || []
 
   const activityItems = activity?.results || []
@@ -100,7 +116,7 @@ export default function Dashboard() {
               Register Occupant
             </button>
             <button
-              onClick={() => navigate('/occupants')}
+              onClick={() => setPickerOpen(true)}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-700 transition-all"
             >
               <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -201,6 +217,20 @@ export default function Dashboard() {
           )}
         </Card>
       </div>
+
+      {pickerOpen && (
+        <OccupantPickerDialog
+          onClose={() => setPickerOpen(false)}
+          onSelect={handleOccupantSelected}
+        />
+      )}
+
+      <RecordPaymentDialog
+        open={!!recordOccupant}
+        occupant={recordOccupant}
+        onClose={() => setRecordOccupant(null)}
+        onRecorded={handlePaymentRecorded}
+      />
     </PageContainer>
   )
 }

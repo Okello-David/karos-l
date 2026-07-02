@@ -13,6 +13,7 @@ import {
 } from '../hooks/useAdmin'
 import { adminService } from '../services/admin'
 import { useAuditLogs, useAuditMeta } from '../hooks/useAudit'
+import { formatUGX } from '../utils/format'
 
 const tabs = [
   { id: 'properties', label: 'Properties' },
@@ -465,11 +466,11 @@ function UnitTab() {
             <thead>
               <tr className="border-b border-gray-200">
                 <th className="text-left py-3 px-4 font-medium text-gray-500">Name</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Section</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Capacity</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden sm:table-cell">Section</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden md:table-cell">Capacity</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-500">Status</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Semester</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Monthly</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden lg:table-cell">Semester</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden xl:table-cell">Monthly</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-500" />
               </tr>
             </thead>
@@ -477,15 +478,15 @@ function UnitTab() {
               {units.map((u) => (
                 <tr key={u.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                   <td className="py-3 px-4 text-gray-900 font-medium">{u.name}</td>
-                  <td className="py-3 px-4 text-gray-500">{u.section_name}</td>
-                  <td className="py-3 px-4 text-gray-500">{u.capacity}</td>
+                  <td className="py-3 px-4 text-gray-500 hidden sm:table-cell">{u.section_name}</td>
+                  <td className="py-3 px-4 text-gray-500 hidden md:table-cell">{u.capacity}</td>
                   <td className="py-3 px-4">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[u.status] || ''}`}>
                       {u.status}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-gray-500">UGX {Number(u.semester_price).toLocaleString('en-UG')}</td>
-                  <td className="py-3 px-4 text-gray-500">UGX {Number(u.monthly_price).toLocaleString('en-UG')}</td>
+                  <td className="py-3 px-4 text-gray-500 hidden lg:table-cell">{formatUGX(u.semester_price)}</td>
+                  <td className="py-3 px-4 text-gray-500 hidden xl:table-cell">{formatUGX(u.monthly_price)}</td>
                   <td className="py-3 px-4 text-right">
                     <button onClick={() => setDialog({ mode: 'edit', item: u, title: 'Edit Unit' })} className="text-primary-600 hover:text-primary-700 text-sm font-medium mr-3">Edit</button>
                     {u.status === 'active' && (
@@ -624,7 +625,7 @@ function PricingTab() {
               {rules.map((r) => (
                 <tr key={r.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                   <td className="py-3 px-4 text-gray-900 font-medium capitalize">{r.billing_mode}</td>
-                  <td className="py-3 px-4 text-gray-900">UGX {Number(r.price).toLocaleString('en-UG')}</td>
+                  <td className="py-3 px-4 text-gray-900">{formatUGX(r.price)}</td>
                   <td className="py-3 px-4 text-gray-500">{new Date(r.effective_date).toLocaleDateString()}</td>
                   <td className="py-3 px-4 text-right">
                     <button onClick={() => setDeleteConfirm(r)} className="text-red-600 hover:text-red-700 text-sm font-medium">Delete</button>
@@ -648,7 +649,7 @@ function PricingTab() {
       <ConfirmDialog
         open={!!deleteConfirm}
         title="Delete Pricing Rule"
-        message={`Delete pricing rule for ${deleteConfirm?.billing_mode} at UGX ${Number(deleteConfirm?.price || 0).toLocaleString('en-UG')}?`}
+        message={`Delete pricing rule for ${deleteConfirm?.billing_mode} at ${formatUGX(deleteConfirm?.price || 0)}?`}
         confirmLabel="Delete"
         variant="danger"
         onConfirm={() => { handleDelete(deleteConfirm.id); setDeleteConfirm(null) }}
@@ -744,9 +745,9 @@ function UsersTab() {
             <thead>
               <tr className="border-b border-gray-200">
                 <th className="text-left py-3 px-4 font-medium text-gray-500">Username</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Name</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Email</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-500">Role</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden sm:table-cell">Name</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden md:table-cell">Email</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-500 hidden lg:table-cell">Role</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-500">Status</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-500" />
               </tr>
@@ -755,9 +756,9 @@ function UsersTab() {
               {users.map((u) => (
                 <tr key={u.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                   <td className="py-3 px-4 text-gray-900 font-medium">{u.username}</td>
-                  <td className="py-3 px-4 text-gray-500">{[u.first_name, u.last_name].filter(Boolean).join(' ') || '—'}</td>
-                  <td className="py-3 px-4 text-gray-500">{u.email || '—'}</td>
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-4 text-gray-500 hidden sm:table-cell">{[u.first_name, u.last_name].filter(Boolean).join(' ') || '—'}</td>
+                  <td className="py-3 px-4 text-gray-500 hidden md:table-cell">{u.email || '—'}</td>
+                  <td className="py-3 px-4 hidden lg:table-cell">
                     {u.is_superuser ? (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Super Admin</span>
                     ) : u.is_staff ? (
@@ -1041,13 +1042,15 @@ export default function Administration() {
       title="Administration"
       description="Manage properties, sections, units, pricing rules, and system users."
     >
-      <div className="border-b border-gray-200">
-        <nav className="flex gap-6 -mb-px">
+      <div className="border-b border-gray-200 overflow-x-auto">
+        <nav className="flex gap-6 -mb-px" role="tablist">
           {tabs.map((tab) => (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors flex-shrink-0 whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-primary-600 text-primary-700'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
