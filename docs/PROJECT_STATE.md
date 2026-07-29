@@ -8,7 +8,9 @@
 
 **Verified live:** all three containers healthy; 40 migrations applied against PostgreSQL; `/api/health/` returns `{"status":"ok","database":"ok"}` *through the public IP*, proving the whole internet → security group → nginx → Gunicorn → PostgreSQL chain; SPA loads with deep-link refresh working; `/api/auth/login/` returns a proper Django validation error rather than a gateway error; protected endpoints return 401; ports 8000 and 5432 confirmed unreachable from the internet.
 
-**Outstanding:** the `karosadmin` superuser exists but its password has not been set, so the authenticated workflow walkthrough (login → dashboard → property → occupant → payment) is not yet done. Set it with `docker compose exec backend python manage.py changepassword karosadmin` on the instance.
+**Authenticated access verified:** `karosadmin` password set; login through the public IP returns a DRF token and authenticated reads of dashboard/properties/occupants all return 200.
+
+**Outstanding:** the business-workflow walkthrough (create property → register occupant → record payment → receipt) has not been run on staging; the database is empty apart from the admin user.
 
 **Two environment realities found by deploying for real:**
 - Amazon Linux 2023 ships Docker with **buildx 0.12.1**, but Compose v5 requires **≥ 0.17.0**, so `docker compose build` fails outright until a current buildx plugin is installed. `scripts/server-setup.sh` now handles this.

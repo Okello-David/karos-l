@@ -89,12 +89,16 @@ Commands: `docs/AWS_EC2_DEPLOYMENT.md`. Optional helper: `scripts/server-setup.s
 - [ ] **Containers built** — `docker compose build` (first build is slow; the frontend `npm ci` dominates).
 - [ ] **Services started** — `docker compose up -d`.
 - [ ] **Migrations confirmed applied.** They run automatically via `backend/docker-entrypoint.sh` on every backend start; confirm in the logs rather than assuming.
-- [x] **Superuser created** — `karosadmin` (2026-07-29). ⚠️ **Its password still needs to be set interactively** before anyone can log in:
+- [x] **Superuser created and password set** — `karosadmin` (2026-07-29), login verified through the public IP.
+
+  To rotate it (recommended, since the initial value was set non-interactively):
   ```bash
   ssh -i ~/.ssh/karosl-staging-key.pem ec2-user@<EC2_PUBLIC_IP>
   cd ~/apps/karosl && docker compose exec backend python manage.py changepassword karosadmin
   ```
-  Use a strong, unique password; **not** the local dev password, and **not** `demo`/`demo12345`. Run it interactively so the value never lands in shell history, a script, or a transcript.
+  Run it interactively so the value never lands in shell history, a script, or a transcript. Use a strong, unique password — **not** the local dev password, and **not** `demo`/`demo12345`.
+
+  **Note on `docker compose exec -T`:** it reads stdin, so calling it inside a piped/heredoc script silently swallows the rest of that script. Always append `< /dev/null` when scripting a non-interactive `exec`.
 - [ ] **All three services report `healthy`** — `docker compose ps`.
 
 ### 3a. Required `.env` values on the staging server
@@ -119,7 +123,7 @@ Run against `http://<EC2_PUBLIC_IP>` from your own browser, not from the server.
 - [x] **Deep-link refresh works** — `/dashboard` returns 200 via Nginx `try_files`. ✅ 2026-07-29
 - [x] **API reachable and auth enforced** — `POST /api/auth/login/` with bad credentials returns a Django validation error (400), not a gateway error; `/api/properties/`, `/api/occupants/`, `/api/dashboard/` all return 401 unauthenticated. ✅ 2026-07-29
 - [x] **Ports 8000 and 5432 unreachable from the internet.** ✅ verified externally
-- [ ] **Login works** with the superuser created above; the session survives a page refresh. ⬅ **blocked: set the `karosadmin` password first** (see note under §3).
+- [x] **Login works** with the superuser created above. ✅ 2026-07-29 — `POST /api/auth/login/` through the public IP returns a DRF token and the correct user object (`is_staff`/`is_superuser` true); `/api/dashboard/`, `/api/properties/`, `/api/occupants/` all return 200 with that token. Browser session-persistence check still to be done by hand.
 - [ ] **Dashboard loads** with live figures (zeroes on an empty database are correct, not a failure).
 - [ ] **Property creation works** — Administration → Properties → create. Confirms a real authenticated write through to Postgres.
 - [ ] **Section + unit creation works** under that property.

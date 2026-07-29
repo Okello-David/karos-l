@@ -29,7 +29,9 @@ Status: **Executed — staging is live.** First deployed 2026-07-29. See the dep
 
 **Verified on deployment:** all three containers healthy; 40 migrations applied; `/api/health/` returns `{"status":"ok","database":"ok"}` through the public IP (proving internet → security group → nginx → Gunicorn → PostgreSQL); SPA serves with deep-link refresh working; `/api/auth/login/` returns a proper Django validation error rather than a gateway error; protected endpoints return 401; **ports 8000 and 5432 confirmed unreachable from the internet.**
 
-**Known issues at time of writing:** authenticated workflow verification (login → property → occupant → payment) was not completed — see `docs/AWS_STAGING_CHECKLIST.md` §4 for what remains.
+**Authenticated access verified:** `karosadmin` password set and login confirmed through the public IP — DRF token issued, and `/api/dashboard/`, `/api/properties/`, `/api/occupants/` all return 200 with it.
+
+**Known issues at time of writing:** the business-workflow walkthrough (create property → register occupant → record payment → receipt) has not been exercised on staging yet; the database is empty. See `docs/AWS_STAGING_CHECKLIST.md` §4.
 
 ---
 
