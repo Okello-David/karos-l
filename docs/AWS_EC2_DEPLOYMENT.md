@@ -1,6 +1,37 @@
 # AWS EC2 Staging Deployment Guide
 
-Status: **Runbook, not yet executed.** No AWS resources have been created.
+Status: **Executed — staging is live.** First deployed 2026-07-29. See the deployment record below.
+
+---
+
+## Deployment record — AWS staging (2026-07-29)
+
+| Item | Value |
+|---|---|
+| Region | `eu-north-1` (Stockholm) |
+| Availability zone | `eu-north-1a` |
+| Instance ID | `i-0afd1871b46296500` |
+| Instance name tag | `karosl-staging-ec2` (Project=KarosL, Environment=staging) |
+| Instance type | `t3.micro` (2 vCPU, ~916 MB usable RAM) |
+| AMI | `ami-0c783070b2e26d98c` — Amazon Linux 2023 |
+| Public IPv4 | `<EC2_PUBLIC_IP>` — auto-assigned, **no Elastic IP**; changes on every stop/start (see §13) |
+| Key pair | `karosl-staging-key` (private key at `~/.ssh/karosl-staging-key.pem`, mode 400) |
+| Security group | `karosl-staging-sg` — `sg-065fb018e22aa18a5` |
+| VPC / subnet | default `vpc-04664b7a9c5f76d68` / `subnet-0d36cc95a8da7b99c` (public) |
+| Root volume | 10 GB gp3, encrypted, delete-on-termination |
+| IMDS | IMDSv2 required (`HttpTokens=required`) |
+| Swap | 2 GB `/swapfile`, persisted in `/etc/fstab` |
+| App directory | `/home/ec2-user/apps/karosl` |
+| Deployed branch | `cloud-deployment` |
+| Admin username | `karosadmin` |
+
+**Deliberately NOT created:** RDS, NAT Gateway, load balancer, ECS/Fargate, Elastic IP, extra EBS volumes.
+
+**Verified on deployment:** all three containers healthy; 40 migrations applied; `/api/health/` returns `{"status":"ok","database":"ok"}` through the public IP (proving internet → security group → nginx → Gunicorn → PostgreSQL); SPA serves with deep-link refresh working; `/api/auth/login/` returns a proper Django validation error rather than a gateway error; protected endpoints return 401; **ports 8000 and 5432 confirmed unreachable from the internet.**
+
+**Known issues at time of writing:** authenticated workflow verification (login → property → occupant → payment) was not completed — see `docs/AWS_STAGING_CHECKLIST.md` §4 for what remains.
+
+---
 
 Step-by-step commands to deploy KarosL to a single EC2 instance running the existing Docker Compose stack. This is **staging only** — no RDS, no load balancer, no HTTPS, no real tenant data.
 
@@ -122,6 +153,29 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plu
 sudo systemctl enable --now docker
 sudo usermod -aG docker $USER
 ```
+
+### 4.3b Install a current buildx plugin *(required on Amazon Linux 2023)*
+
+Compose v2.30+/v5 delegates image building to **buildx** and refuses to build with anything older than **0.17.0**. Amazon Linux 2023's `docker` package ships **buildx 0.12.1**, so `docker compose build` fails immediately with:
+
+```
+compose build requires buildx 0.17.0 or later
+```
+
+Confirmed on a real AL2023 `t3.micro` during the first staging deployment. Install a current buildx alongside the distro's Docker:
+
+```bash
+BX_TAG=$(curl -fsSL https://api.github.com/repos/docker/buildx/releases/latest \
+  | grep -oE '"tag_name": *"[^"]+"' | cut -d'"' -f4)
+sudo mkdir -p /usr/local/lib/docker/cli-plugins
+sudo curl -fsSL \
+  "https://github.com/docker/buildx/releases/download/${BX_TAG}/buildx-${BX_TAG}.linux-amd64" \
+  -o /usr/local/lib/docker/cli-plugins/docker-buildx
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+docker buildx version      # expect >= v0.17.0
+```
+
+`scripts/server-setup.sh` now performs this check and install automatically. Ubuntu's `docker-ce` packages ship a current buildx, so this step is a no-op there.
 
 ### 4.4 Apply the group change and verify
 
@@ -331,6 +385,65 @@ docker compose up -d      # recreates the backend with the new env
 
 No image rebuild is needed — `VITE_API_BASE_URL=/api` is relative, so the frontend bundle does not contain the IP at all.
 
+## 13a. Cleanup and cost safety — live instance commands
+
+Nothing here runs automatically. Each command is deliberate.
+
+### Containers (on the instance)
+
+```bash
+cd ~/apps/karosl
+docker compose ps                  # what is running
+docker compose stop                # stop containers, keep them and the data
+docker compose down                # remove containers, KEEP named volumes (data safe)
+docker system prune -f             # reclaim dangling images and build cache
+```
+`docker compose down -v` additionally deletes `postgres_data`, `backend_backups`, and `backend_logs` — **every property, occupant, and payment on staging. No undo.**
+
+### Stop the instance between testing sessions (from your workstation)
+
+This is the main cost lever: compute charges stop immediately. The 10 GB EBS root volume keeps billing (a few cents a month), and there is **no Elastic IP**, so nothing else accrues.
+
+```bash
+aws ec2 stop-instances  --instance-ids i-0afd1871b46296500 --region eu-north-1
+aws ec2 start-instances --instance-ids i-0afd1871b46296500 --region eu-north-1
+
+# The public IP CHANGES after each start — fetch the new one:
+aws ec2 describe-instances --instance-ids i-0afd1871b46296500 --region eu-north-1 \
+  --query 'Reservations[0].Instances[0].PublicIpAddress' --output text
+```
+Then update `ALLOWED_HOSTS` / `CSRF_TRUSTED_ORIGINS` / `CORS_ALLOWED_ORIGINS` in the server's `.env` and run `docker compose up -d` (§13).
+
+### Terminate when staging is no longer needed
+
+**Back up anything worth keeping first — termination is irreversible.**
+
+```bash
+# 1. Dump the database and copy it off the instance
+ssh -i ~/.ssh/karosl-staging-key.pem ec2-user@<EC2_PUBLIC_IP> \
+  'cd ~/apps/karosl && docker compose exec -T db pg_dump -U karosl_user karosl' \
+  > karosl-staging-$(date +%F).sql
+
+# 2. Terminate the instance (the root volume is delete-on-termination, so it goes too)
+aws ec2 terminate-instances --instance-ids i-0afd1871b46296500 --region eu-north-1
+
+# 3. Confirm no volumes were orphaned (expect an empty list)
+aws ec2 describe-volumes --region eu-north-1 \
+  --filters "Name=status,Values=available" \
+  --query 'Volumes[].{Id:VolumeId,Size:Size,Created:CreateTime}' --output table
+
+# 4. Optional — remove the security group and key pair if not reusing them
+aws ec2 delete-security-group --group-id sg-065fb018e22aa18a5 --region eu-north-1
+aws ec2 delete-key-pair --key-name karosl-staging-key --region eu-north-1
+
+# 5. Confirm nothing is still running in the region
+aws ec2 describe-instances --region eu-north-1 \
+  --filters "Name=instance-state-name,Values=running,stopped" \
+  --query 'Reservations[].Instances[].{Id:InstanceId,State:State.Name}' --output table
+```
+
+Check Cost Explorer 24–48 h later and confirm the daily run-rate actually dropped. Verify, don't assume.
+
 ## 14. Troubleshooting
 
 Common symptoms and their causes, ordered by how often they actually happen. See also `docs/DEVOPS.md` §10.
@@ -414,6 +527,10 @@ Usually a distro's Apache/Nginx installed by a "web server" setup step. `sudo sy
 ### Site unreachable from the browser but `curl localhost` works on the server
 
 Security group inbound rule for HTTP 80 is missing or scoped to the wrong source. Also confirm `FRONTEND_PORT=80` in `.env` — otherwise it's listening on 8080, which the security group does not allow.
+
+### `compose build requires buildx 0.17.0 or later`
+
+Amazon Linux 2023's Docker package ships buildx 0.12.1, which is too old for Compose v2.30+/v5. Install a current buildx plugin — see §4.3b. `scripts/server-setup.sh` handles it automatically.
 
 ### Build fails or dies silently on a small instance
 

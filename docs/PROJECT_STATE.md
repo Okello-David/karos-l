@@ -1,5 +1,23 @@
 # Project State
 
+## AWS staging DEPLOYED (2026-07-29)
+
+**KarosL is live on AWS staging.** Region `eu-north-1`, instance `i-0afd1871b46296500` (`karosl-staging-ec2`, `t3.micro`, Amazon Linux 2023), security group `karosl-staging-sg` (`sg-065fb018e22aa18a5`), 10 GB encrypted gp3 root volume, auto-assigned public IP. The stack is the unmodified `docker-compose.yml` — nginx/React + Gunicorn/Django + PostgreSQL container — deployed from the new `cloud-deployment` branch into `/home/ec2-user/apps/karosl`.
+
+**Deliberately not created:** RDS, NAT Gateway, load balancer, ECS/Fargate, Elastic IP, extra EBS volumes.
+
+**Verified live:** all three containers healthy; 40 migrations applied against PostgreSQL; `/api/health/` returns `{"status":"ok","database":"ok"}` *through the public IP*, proving the whole internet → security group → nginx → Gunicorn → PostgreSQL chain; SPA loads with deep-link refresh working; `/api/auth/login/` returns a proper Django validation error rather than a gateway error; protected endpoints return 401; ports 8000 and 5432 confirmed unreachable from the internet.
+
+**Outstanding:** the `karosadmin` superuser exists but its password has not been set, so the authenticated workflow walkthrough (login → dashboard → property → occupant → payment) is not yet done. Set it with `docker compose exec backend python manage.py changepassword karosadmin` on the instance.
+
+**Two environment realities found by deploying for real:**
+- Amazon Linux 2023 ships Docker with **buildx 0.12.1**, but Compose v5 requires **≥ 0.17.0**, so `docker compose build` fails outright until a current buildx plugin is installed. `scripts/server-setup.sh` now handles this.
+- A `t3.micro` has ~916 MB usable RAM. A 2 GB swapfile was added before building; the previously-documented OOM risk for the frontend `npm run build` is real, not theoretical.
+
+**Cost posture:** no Elastic IP, so a stopped instance bills only its 10 GB EBS volume. Stop it between sessions; note the public IP changes on restart and the `.env` origins must be updated.
+
+---
+
 Snapshot as of 2026-07-29, after the AWS **staging preparation** pass (see `docs/AWS_STAGING_CHECKLIST.md` and `docs/AWS_EC2_DEPLOYMENT.md`). Prior snapshot (2026-07-23) was the AWS deployment planning pass (`docs/AWS_DEPLOYMENT_PLAN.md`); before that (2026-07-04), the Cloud Engineering Phase's containerization pass (`docs/DEVOPS.md`, `docs/DEPLOYMENT.md`), which itself followed the RC Final Stabilization Closeout (`docs/RELEASE_PLAN.md`, `docs/BUG_QUEUE.md`).
 
 ## AWS staging preparation (2026-07-29)

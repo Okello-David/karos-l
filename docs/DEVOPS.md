@@ -137,7 +137,7 @@ Reviewed what KarosL persists to disk today, ahead of introducing S3:
 
 ## 9. Next Steps Toward AWS Deployment
 
-**Immediate next step: AWS staging (Phase 2)** — the same Compose stack on one small EC2 instance, over HTTP, with PostgreSQL still in a container. Prepared and documented, not yet deployed:
+**AWS staging (Phase 2) is DEPLOYED as of 2026-07-29** — the same Compose stack on one `t3.micro` in `eu-north-1` (instance `i-0afd1871b46296500`), over HTTP, with PostgreSQL still in a container. Nothing about the Docker architecture above changed to make this work; only environment values differed.
 
 - `docs/AWS_STAGING_CHECKLIST.md` — account safety gate, EC2 plan, security group rules (incl. why 5432 must never be public), server setup, verification, cleanup.
 - `docs/AWS_EC2_DEPLOYMENT.md` — the command runbook (connect → install Docker → clone → `.env` → build → migrate → superuser → logs → troubleshooting).
@@ -202,3 +202,4 @@ Helper: `./scripts/docker-logs.sh --status` (status + resources + disk), `./scri
 | "Media files missing" | There are none. KarosL has no `MEDIA_ROOT` and no `FileField`/`ImageField`; receipt PDFs and CSV/XLSX exports are generated in memory and streamed (§6). | Nothing to fix — the feature does not exist yet. |
 | Port 80/8080 already in use | A host web server (Apache/nginx) is bound to it. | `sudo ss -tlnp \| grep :80`, then disable the offending service or change `FRONTEND_PORT`. |
 | Build dies with no clear error on a small host | Out of memory during the frontend `npm run build`. | Add swap (`docs/AWS_EC2_DEPLOYMENT.md` §4.5) or build on a bigger machine and push images to a registry. |
+| `compose build requires buildx 0.17.0 or later` | Amazon Linux 2023's docker package ships buildx 0.12.1; Compose v2.30+/v5 delegates building to buildx and rejects anything older. Hit for real on an AL2023 `t3.micro`. | Install a current buildx CLI plugin — `docs/AWS_EC2_DEPLOYMENT.md` §4.3b. `scripts/server-setup.sh` now does this automatically. Ubuntu's `docker-ce` packages are unaffected. |

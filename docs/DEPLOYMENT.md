@@ -7,7 +7,7 @@ This document covers deploying KarosL's containers. For architecture rationale a
 | Target | Status | Where |
 |---|---|---|
 | **Local production-like** (Docker Compose on a dev machine) | ✅ Verified | This document |
-| **AWS staging** (single EC2 + Docker Compose) | 📋 Prepared, not yet deployed | `docs/AWS_STAGING_CHECKLIST.md` + `docs/AWS_EC2_DEPLOYMENT.md` |
+| **AWS staging** (single EC2 + Docker Compose) | ✅ **Live since 2026-07-29** — `eu-north-1`, instance `i-0afd1871b46296500` | `docs/AWS_STAGING_CHECKLIST.md` + `docs/AWS_EC2_DEPLOYMENT.md` |
 | **AWS production** (RDS, S3, CloudWatch, TLS) | ⛔ Not started, deliberately deferred | `docs/AWS_DEPLOYMENT_PLAN.md` Phases 3–6 |
 
 ## Required pre-deployment step for any AWS target: cost safety
@@ -104,13 +104,27 @@ See `docs/DEVOPS.md` §5 for the full table of which `.env.example` file feeds w
 
 See `docs/DEVOPS.md` §8 for the full list (no CI/CD, no S3 yet, single-replica assumption, no TLS termination locally). These are expected at this stage of the Cloud Engineering Phase and are not regressions.
 
-## Next Step: AWS Staging
+## AWS Staging — deployed 2026-07-29
 
-The immediate next step is **AWS staging** — the same Compose stack on one small EC2 instance, reached over HTTP on the instance's public IP, with PostgreSQL still in a container.
+Staging is **live** in `eu-north-1` on instance `i-0afd1871b46296500` (`karosl-staging-ec2`), behind security group `karosl-staging-sg`, with PostgreSQL still in a container. Full record, commands, and troubleshooting: `docs/AWS_EC2_DEPLOYMENT.md`.
 
-1. **Gate:** complete the cost-safety step above. Budget + alerts first, always.
-2. Work through `docs/AWS_STAGING_CHECKLIST.md` — account safety, EC2 plan, security group, server setup, verification, cleanup.
-3. Follow `docs/AWS_EC2_DEPLOYMENT.md` for the exact commands.
+### Cost safety while it exists
+
+The instance has an **auto-assigned public IP and no Elastic IP**, so nothing bills when it is stopped except the 10 GB EBS root volume. **Stop it between testing sessions:**
+
+```bash
+aws ec2 stop-instances  --instance-ids i-0afd1871b46296500 --region eu-north-1
+aws ec2 start-instances --instance-ids i-0afd1871b46296500 --region eu-north-1
+```
+
+After a start the **public IP changes**, so `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, and `CORS_ALLOWED_ORIGINS` in the server's `.env` must be updated and `docker compose up -d` re-run — see `docs/AWS_EC2_DEPLOYMENT.md` §13.
+
+### Redeploying a code change
+
+```bash
+ssh -i ~/.ssh/karosl-staging-key.pem ec2-user@<EC2_PUBLIC_IP>
+cd ~/apps/karosl && ./scripts/deploy-staging.sh --pull
+```
 
 Three staging-only `.env` differences from local, each of which will bite if missed:
 `FRONTEND_PORT=80` (default is 8080), `ALLOWED_HOSTS` must include the EC2 public IP **and keep `localhost`** (the backend container's healthcheck curls it), and `CSRF_TRUSTED_ORIGINS`/`CORS_ALLOWED_ORIGINS` must be `http://<EC2_PUBLIC_IP>` with scheme and no trailing slash.

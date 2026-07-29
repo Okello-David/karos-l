@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Deployed — Cloud Engineering Phase: AWS Staging is LIVE (2026-07-29)
+- **KarosL now runs on AWS.** Region `eu-north-1`, single `t3.micro` (`i-0afd1871b46296500`, tag `karosl-staging-ec2`) on Amazon Linux 2023, running the unmodified `docker-compose.yml` stack. Created via AWS CLI: key pair `karosl-staging-key`, security group `karosl-staging-sg` (`sg-065fb018e22aa18a5`), 10 GB encrypted gp3 root volume with delete-on-termination, IMDSv2 required, auto-assigned public IP.
+- **Security group:** inbound SSH 22 from the admin workstation `/32` only, HTTP 80 from `0.0.0.0/0` (temporary staging); outbound default. **No 5432, no 8000, no 5173.** Verified externally that 8000 and 5432 are unreachable from the internet.
+- **Not created, per scope:** RDS, NAT Gateway, load balancer, ECS/Fargate, Elastic IP, extra EBS volumes.
+- **Verified live through the public IP:** all three containers healthy; 40 migrations applied against PostgreSQL; `/api/health/` → `{"status":"ok","database":"ok"}` (proving internet → security group → nginx → Gunicorn → PostgreSQL end to end); SPA serves with deep-link refresh via `try_files`; `/api/auth/login/` returns a Django validation error rather than a gateway error; `/api/properties/`, `/api/occupants/`, `/api/dashboard/` all return 401 unauthenticated.
+- **Outstanding:** superuser `karosadmin` exists but has no password set, so the authenticated workflow walkthrough is not yet complete.
+- No application code or business features changed to make this work — only environment values differ from local.
+
+### Added — `cloud-deployment` branch (2026-07-29)
+- The entire Docker/DevOps effort was untracked, so a clone of this repository could not be built or run anywhere. Committed the containerization, the settings fixes it surfaced, the AWS staging assets, and the helper scripts to a new `cloud-deployment` branch and pushed it, making the repo deployable. No secrets committed — only `.env.example` placeholders.
+
+### Fixed — Amazon Linux 2023 buildx incompatibility (2026-07-29)
+- `docker compose build` failed on a fresh AL2023 instance with `compose build requires buildx 0.17.0 or later`: the distro's docker package ships **buildx 0.12.1**, while Compose v2.30+/v5 delegates image building to buildx and rejects anything older. Fixed by installing a current buildx CLI plugin. `scripts/server-setup.sh` now detects the old version and installs a current one automatically; documented in `docs/AWS_EC2_DEPLOYMENT.md` §4.3b and the `docs/DEVOPS.md` §10 troubleshooting table. Ubuntu's `docker-ce` packages are unaffected.
+
 ### Documented — Cloud Engineering Phase: AWS Staging Preparation (2026-07-29)
 - **No AWS resources created, nothing deployed, no application code or business features changed.** Documentation and deployment assets only, preparing Phase 2 of `docs/AWS_DEPLOYMENT_PLAN.md` (single EC2 + Docker Compose, PostgreSQL still in a container, HTTP only).
 - `docs/AWS_STAGING_CHECKLIST.md` — new. The Phase 2 tick-list: AWS account safety (budget, alerts, region, root MFA, free-tier check, explicit no-NAT/no-ALB/no-RDS decisions), EC2 plan (AMI, smallest instance, small EBS, key pair, IP strategy), security-group rules with a full rationale for why PostgreSQL must never be publicly exposed, server setup, a 15-point verification list, and a two-tier cleanup list (per-session vs. teardown).

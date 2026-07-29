@@ -1,6 +1,10 @@
 # AWS Staging Checklist
 
-Status: **Not yet executed.** No AWS resources have been created. This is the tick-list for KarosL's first AWS staging deployment (Phase 2 of `docs/AWS_DEPLOYMENT_PLAN.md`) — a single EC2 instance running the same Docker Compose stack already verified locally.
+Status: **Executed 2026-07-29 — staging is live in `eu-north-1`.** Sections 1–3 are complete; Section 4 is partially verified (see the progress note below). This is the tick-list for KarosL's first AWS staging deployment (Phase 2 of `docs/AWS_DEPLOYMENT_PLAN.md`) — a single EC2 instance running the same Docker Compose stack already verified locally.
+
+> **Deployment progress (2026-07-29).** §1 account safety: budget + alerts confirmed by the account owner before provisioning; region `eu-north-1`. §2 EC2 + security group: done — instance `i-0afd1871b46296500`, SG `karosl-staging-sg` (`sg-065fb018e22aa18a5`), auto-assigned public IP, no Elastic IP. §3 server setup: done, including a 2 GB swapfile and a buildx upgrade (see below). §4 verification: **infrastructure and unauthenticated checks pass; the authenticated workflow walkthrough is still outstanding** because the `karosadmin` password has not been set. §5 cleanup: not yet needed — remember to stop the instance between sessions.
+>
+> **Deviation from plan, worth knowing:** Amazon Linux 2023 ships Docker with buildx 0.12.1, but Compose v5 requires buildx ≥ 0.17.0, so `docker compose build` failed on first run. Fixed by installing a current buildx plugin; `scripts/server-setup.sh` now does this automatically. Full detail in `docs/AWS_EC2_DEPLOYMENT.md` §4.3b.
 
 > ⛔ **GATE — Section 1 must be fully green before anything in Sections 2–3 is touched.**
 > **No AWS deployment should proceed before budget alerts are configured.** Not the EC2 instance, not the security group, not an Elastic IP, not a test bucket. The budget is the first thing created in the account.
@@ -85,7 +89,12 @@ Commands: `docs/AWS_EC2_DEPLOYMENT.md`. Optional helper: `scripts/server-setup.s
 - [ ] **Containers built** — `docker compose build` (first build is slow; the frontend `npm ci` dominates).
 - [ ] **Services started** — `docker compose up -d`.
 - [ ] **Migrations confirmed applied.** They run automatically via `backend/docker-entrypoint.sh` on every backend start; confirm in the logs rather than assuming.
-- [ ] **Superuser created** — `docker compose exec backend python manage.py createsuperuser`. Use a strong, unique password; **not** the local dev password, and **not** `demo`/`demo12345`.
+- [x] **Superuser created** — `karosadmin` (2026-07-29). ⚠️ **Its password still needs to be set interactively** before anyone can log in:
+  ```bash
+  ssh -i ~/.ssh/karosl-staging-key.pem ec2-user@<EC2_PUBLIC_IP>
+  cd ~/apps/karosl && docker compose exec backend python manage.py changepassword karosadmin
+  ```
+  Use a strong, unique password; **not** the local dev password, and **not** `demo`/`demo12345`. Run it interactively so the value never lands in shell history, a script, or a transcript.
 - [ ] **All three services report `healthy`** — `docker compose ps`.
 
 ### 3a. Required `.env` values on the staging server
@@ -104,11 +113,13 @@ Full annotated values in `docs/AWS_EC2_DEPLOYMENT.md` §5. The four that differ 
 
 Run against `http://<EC2_PUBLIC_IP>` from your own browser, not from the server.
 
-- [ ] **`docker compose ps`** — `db`, `backend`, `frontend` all `Up` and `(healthy)`.
-- [ ] **`curl http://<EC2_PUBLIC_IP>/api/health/`** → `{"status": "ok", "database": "ok"}`. This one call proves the whole chain: internet → security group → Nginx → Gunicorn → Postgres.
-- [ ] **App loads** — the SPA renders at `http://<EC2_PUBLIC_IP>`, no console errors about failed API calls.
-- [ ] **Deep-link refresh works** — navigate to `/dashboard`, hit reload, still get the app (Nginx `try_files`) rather than a 404.
-- [ ] **Login works** with the superuser created above; the session survives a page refresh.
+- [x] **`docker compose ps`** — `db`, `backend`, `frontend` all `Up` and `(healthy)`. ✅ 2026-07-29
+- [x] **`curl http://<EC2_PUBLIC_IP>/api/health/`** → `{"status": "ok", "database": "ok"}`. This one call proves the whole chain: internet → security group → Nginx → Gunicorn → Postgres. ✅ 2026-07-29
+- [x] **App loads** — the SPA renders at `http://<EC2_PUBLIC_IP>`. ✅ HTTP 200, `<title>KarosL</title>`, hashed asset bundle served.
+- [x] **Deep-link refresh works** — `/dashboard` returns 200 via Nginx `try_files`. ✅ 2026-07-29
+- [x] **API reachable and auth enforced** — `POST /api/auth/login/` with bad credentials returns a Django validation error (400), not a gateway error; `/api/properties/`, `/api/occupants/`, `/api/dashboard/` all return 401 unauthenticated. ✅ 2026-07-29
+- [x] **Ports 8000 and 5432 unreachable from the internet.** ✅ verified externally
+- [ ] **Login works** with the superuser created above; the session survives a page refresh. ⬅ **blocked: set the `karosadmin` password first** (see note under §3).
 - [ ] **Dashboard loads** with live figures (zeroes on an empty database are correct, not a failure).
 - [ ] **Property creation works** — Administration → Properties → create. Confirms a real authenticated write through to Postgres.
 - [ ] **Section + unit creation works** under that property.

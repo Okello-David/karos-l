@@ -82,6 +82,42 @@ else
     sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 fi
 
+# --- Buildx plugin ----------------------------------------------------------
+# Compose v2.30+/v5 delegates image building to buildx and refuses to build
+# with anything older than 0.17.0. Amazon Linux 2023's docker package ships
+# buildx 0.12.1, so `docker compose build` fails with:
+#     compose build requires buildx 0.17.0 or later
+# Confirmed on a real AL2023 t3.micro. Install a current buildx alongside it.
+buildx_ok=false
+if docker buildx version >/dev/null 2>&1; then
+    bx_ver=$(docker buildx version | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1 | tr -d 'v')
+    bx_major=${bx_ver%%.*}
+    bx_minor=$(echo "$bx_ver" | cut -d. -f2)
+    if [ "$bx_major" -gt 0 ] || [ "$bx_minor" -ge 17 ]; then
+        buildx_ok=true
+        log "Docker buildx ${bx_ver} is new enough for compose build."
+    else
+        warn "Docker buildx ${bx_ver} is too old for 'docker compose build' (needs >= 0.17.0)."
+    fi
+fi
+
+if [ "$buildx_ok" = false ]; then
+    log "Installing a current docker buildx plugin..."
+    bx_tag=$(curl -fsSL https://api.github.com/repos/docker/buildx/releases/latest \
+        | grep -oE '"tag_name": *"[^"]+"' | cut -d'"' -f4)
+    if [ -z "$bx_tag" ]; then
+        warn "Could not determine the latest buildx release; skipping."
+        warn "Install it manually if 'docker compose build' complains about buildx."
+    else
+        sudo mkdir -p /usr/local/lib/docker/cli-plugins
+        sudo curl -fsSL \
+            "https://github.com/docker/buildx/releases/download/${bx_tag}/buildx-${bx_tag}.linux-$(dpkg --print-architecture 2>/dev/null || echo amd64)" \
+            -o /usr/local/lib/docker/cli-plugins/docker-buildx
+        sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+        log "Installed buildx $(docker buildx version | grep -oE 'v[0-9.]+' | head -1)."
+    fi
+fi
+
 # --- Non-root docker access -------------------------------------------------
 if id -nG "$USER" | tr ' ' '\n' | grep -qx docker; then
     log "User '$USER' is already in the docker group."
