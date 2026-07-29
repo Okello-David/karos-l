@@ -39,7 +39,7 @@ Also confirmed while reviewing settings for the env documentation: KarosL uses *
 
 ## Where things stand
 
-KarosL is a Django REST Framework + React (Vite) accommodation-management platform. Application stabilization (Release Candidate) is complete; the project is in the **Cloud Engineering Phase**, with AWS staging documented and asset-ready but **not yet deployed**. Core domain (properties → sections → units, occupants, occupancy, payments/receipts, administration, audit log, backup/export) is implemented and has been verified end-to-end against a live running instance, and verified running fully containerized (Docker Compose: Nginx + Gunicorn/Django + PostgreSQL) — see `docs/DEVOPS.md` for architecture and `docs/DEPLOYMENT.md` for build/run/verify steps.
+KarosL is a Django REST Framework + React (Vite) accommodation-management platform. Application stabilization (Release Candidate) is complete; the project is in the **Cloud Engineering Phase**, with AWS staging **deployed and live** in `eu-north-1` (see the top of this document). Core domain (properties → sections → units, occupants, occupancy, payments/receipts, administration, audit log, backup/export) is implemented and has been verified end-to-end against a live running instance, and verified running fully containerized (Docker Compose: Nginx + Gunicorn/Django + PostgreSQL) — see `docs/DEVOPS.md` for architecture and `docs/DEPLOYMENT.md` for build/run/verify steps.
 
 ## Docker stack re-verification (2026-07-23)
 
