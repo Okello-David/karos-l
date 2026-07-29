@@ -63,6 +63,12 @@ class AdminService:
 
     @staticmethod
     def create_section(data):
+        property_obj = data.get("property")
+        if property_obj is not None and not property_obj.is_active:
+            raise ConflictError(
+                f"Cannot add a section to '{property_obj.name}' because it is archived. "
+                "Reactivate the property first."
+            )
         return Section.objects.create(**data)
 
     @staticmethod
@@ -110,6 +116,12 @@ class AdminService:
 
     @staticmethod
     def create_unit(data):
+        section_obj = data.get("section")
+        if section_obj is not None and not section_obj.is_active:
+            raise ConflictError(
+                f"Cannot add a unit to '{section_obj.name}' because it is archived. "
+                "Reactivate the section first."
+            )
         return Unit.objects.create(**data)
 
     @staticmethod

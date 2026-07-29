@@ -1,4 +1,8 @@
-const BASE_URL = '/api'
+// Defaults to a relative path so the existing Vite dev proxy (see vite.config.js)
+// and the Docker nginx reverse proxy (see frontend/nginx.conf) both work with zero
+// configuration. Override at build time with VITE_API_BASE_URL for deployments
+// where the frontend and backend are served from different origins.
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 function handleUnauthenticated() {
   localStorage.removeItem('auth_token')

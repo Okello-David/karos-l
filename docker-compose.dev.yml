@@ -1,0 +1,68 @@
+# Docker-based dev inner loop with hot reload (Django runserver + Vite dev
+# server), for developers who want a containerized alternative to the native
+# venv/npm workflow. The native workflow (backend/venv + `npm run dev`) is
+# untouched and remains the primary documented path — see docs/DEVOPS.md.
+#
+#   cp .env.example .env   # then edit values
+#   docker compose -f docker-compose.dev.yml up --build
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-karosl}
+      POSTGRES_USER: ${POSTGRES_USER:-karosl_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    # See the same note in docker-compose.yml — not published by default.
+    # ports:
+    #   - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-karosl_user} -d ${POSTGRES_DB:-karosl}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DEBUG: "True"
+      DB_ENGINE: django.db.backends.postgresql
+      DB_HOST: db
+      DB_PORT: 5432
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - backend_backups_dev:/app/backups
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    command: python manage.py runserver 0.0.0.0:8000
+
+  frontend:
+    build:
+      context: ./frontend
+      target: build
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_PROXY_TARGET: http://backend:8000
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "${FRONTEND_DEV_PORT:-5173}:5173"
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  postgres_data_dev:
+  backend_backups_dev:
+  frontend_node_modules:

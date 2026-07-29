@@ -126,6 +126,7 @@ class AdminSectionViewSet(viewsets.ViewSet):
         serializer = AdminSectionSerializer(section)
         return Response(serializer.data)
 
+    @_handle_exceptions
     def create(self, request):
         serializer = AdminSectionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -217,6 +218,7 @@ class AdminUnitViewSet(viewsets.ViewSet):
         serializer = AdminUnitSerializer(unit)
         return Response(serializer.data)
 
+    @_handle_exceptions
     def create(self, request):
         serializer = AdminUnitSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

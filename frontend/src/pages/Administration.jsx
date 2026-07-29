@@ -387,6 +387,12 @@ function UnitTab() {
     archived: 'bg-gray-100 text-gray-600',
   }
 
+  const statusLabels = {
+    active: 'Active',
+    maintenance: 'Maintenance',
+    archived: 'Archived',
+  }
+
   const fields = [
     { name: 'name', label: 'Name', required: true },
     { name: 'capacity', label: 'Capacity', type: 'number', required: true },
@@ -482,7 +488,7 @@ function UnitTab() {
                   <td className="py-3 px-4 text-gray-500 hidden md:table-cell">{u.capacity}</td>
                   <td className="py-3 px-4">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[u.status] || ''}`}>
-                      {u.status}
+                      {statusLabels[u.status] || u.status}
                     </span>
                   </td>
                   <td className="py-3 px-4 text-gray-500 hidden lg:table-cell">{formatUGX(u.semester_price)}</td>

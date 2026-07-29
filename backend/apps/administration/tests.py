@@ -142,6 +142,20 @@ class AdminAPITests(TestCase):
         response = self.client.post(f"{self.admin_url}sections/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_create_section_under_archived_property_rejected(self):
+        self.unit.status = "archived"
+        self.unit.save()
+        self.section.is_active = False
+        self.section.save()
+        self.client.post(f"{self.admin_url}properties/{self.prop.id}/archive/")
+        self.prop.refresh_from_db()
+        self.assertFalse(self.prop.is_active)
+
+        data = {"property": self.prop.id, "name": "Block B"}
+        response = self.client.post(f"{self.admin_url}sections/", data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertFalse(Section.objects.filter(name="Block B").exists())
+
     def test_retrieve_section(self):
         response = self.client.get(f"{self.admin_url}sections/{self.section.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -237,6 +251,23 @@ class AdminAPITests(TestCase):
         response = self.client.get(f"{self.admin_url}units/{self.unit.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["name"], "Room 1")
+
+    def test_create_unit_under_archived_section_rejected(self):
+        self.unit.status = "archived"
+        self.unit.save()
+        self.section.is_active = False
+        self.section.save()
+
+        data = {
+            "section": self.section.id,
+            "name": "Room 2",
+            "capacity": 1,
+            "semester_price": "300000.00",
+            "monthly_price": "150000.00",
+        }
+        response = self.client.post(f"{self.admin_url}units/", data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertFalse(Unit.objects.filter(name="Room 2").exists())
 
     def test_update_unit(self):
         data = {

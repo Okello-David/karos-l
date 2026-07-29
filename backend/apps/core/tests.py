@@ -40,6 +40,16 @@ class DrfExceptionHandlerTests(TestCase):
         self.assertEqual(response.data["status_code"], 400)
 
 
+class HealthCheckTests(TestCase):
+
+    def test_health_check_ok_no_auth_required(self):
+        client = APIClient()
+        response = client.get("/api/health/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "ok")
+        self.assertEqual(response.data["database"], "ok")
+
+
 class ReleaseWorkflowAPITests(TestCase):
 
     def setUp(self):

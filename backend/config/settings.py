@@ -20,17 +20,29 @@ DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 # Security middleware settings
+# HTTPS-enforcing settings default to "on whenever DEBUG is off", but are
+# independently overridable via env var. This matters because DEBUG=False
+# does not imply a request actually arrived over HTTPS — e.g. this repo's
+# local Docker Compose environment runs DEBUG=False with no TLS termination
+# anywhere in the chain (see docs/DEVOPS.md), so forcing HTTPS redirects and
+# Secure-flagged cookies there would break all HTTP access, including admin
+# login. Real production behind a TLS-terminating proxy/load balancer keeps
+# the DEBUG=False default with no extra env vars needed.
+def _bool_env(name, default):
+    return os.getenv(name, str(default)).lower() in ('true', '1', 'yes')
+
+
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_BROWSER_XSS_FILTER = True
 X_FRAME_OPTIONS = 'DENY'
 CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_SECURE = not DEBUG
-SESSION_COOKIE_SECURE = not DEBUG
-SECURE_SSL_REDIRECT = not DEBUG
-SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
-SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
-SECURE_HSTS_PRELOAD = not DEBUG
+CSRF_COOKIE_SECURE = _bool_env('CSRF_COOKIE_SECURE', not DEBUG)
+SESSION_COOKIE_SECURE = _bool_env('SESSION_COOKIE_SECURE', not DEBUG)
+SECURE_SSL_REDIRECT = _bool_env('SECURE_SSL_REDIRECT', not DEBUG)
+SECURE_HSTS_SECONDS = 31536000 if SECURE_SSL_REDIRECT else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = SECURE_SSL_REDIRECT
+SECURE_HSTS_PRELOAD = SECURE_SSL_REDIRECT
 
 # ------------------------------------------------------------------
 # Application definition
@@ -65,6 +77,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -95,16 +108,25 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # ------------------------------------------------------------------
 # Database
 # ------------------------------------------------------------------
+_db_engine = os.getenv('DB_ENGINE', 'django.db.backends.sqlite3')
 _db_name = os.getenv('DB_NAME')
-if _db_name:
-    _db_path = Path(_db_name)
-    _db_name = str(_db_path if _db_path.is_absolute() else BASE_DIR / _db_path)
+
+if 'sqlite3' in _db_engine:
+    # SQLite's NAME is a filesystem path — resolve relative paths against
+    # BASE_DIR so local dev keeps working from any working directory.
+    if _db_name:
+        _db_path = Path(_db_name)
+        _db_name = str(_db_path if _db_path.is_absolute() else BASE_DIR / _db_path)
+    else:
+        _db_name = str(BASE_DIR / 'db.sqlite3')
 else:
-    _db_name = str(BASE_DIR / 'db.sqlite3')
+    # PostgreSQL (and other server-based engines): NAME is a database name,
+    # not a path — must not be resolved against BASE_DIR.
+    _db_name = _db_name or 'karosl'
 
 DATABASES = {
     'default': {
-        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.sqlite3'),
+        'ENGINE': _db_engine,
         'NAME': _db_name,
         'USER': os.getenv('DB_USER', ''),
         'PASSWORD': os.getenv('DB_PASSWORD', ''),
@@ -146,6 +168,19 @@ USE_TZ = True
 # ------------------------------------------------------------------
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# WhiteNoise serves Django's own static assets (admin, DRF browsable API)
+# straight from the app container — no separate static file server needed
+# for these. App file uploads are unaffected (there are none today; see
+# docs/DEVOPS.md's "Static and Media Files" section).
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 # ------------------------------------------------------------------
 # Default primary key

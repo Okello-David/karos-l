@@ -10,11 +10,16 @@ build/
 backend/venv/
 backend/staticfiles/
 backend/.env
+backend/logs/
+backend/backups/
 
 # Node
 node_modules/
 frontend/dist/
 frontend/.env
+
+# Docker Compose (root-level env for compose services — never commit)
+.env
 
 # IDE
 .vscode/
