@@ -203,3 +203,136 @@ Helper: `./scripts/docker-logs.sh --status` (status + resources + disk), `./scri
 | Port 80/8080 already in use | A host web server (Apache/nginx) is bound to it. | `sudo ss -tlnp \| grep :80`, then disable the offending service or change `FRONTEND_PORT`. |
 | Build dies with no clear error on a small host | Out of memory during the frontend `npm run build`. | Add swap (`docs/AWS_EC2_DEPLOYMENT.md` §4.5) or build on a bigger machine and push images to a registry. |
 | `compose build requires buildx 0.17.0 or later` | Amazon Linux 2023's docker package ships buildx 0.12.1; Compose v2.30+/v5 delegates building to buildx and rejects anything older. Hit for real on an AL2023 `t3.micro`. | Install a current buildx CLI plugin — `docs/AWS_EC2_DEPLOYMENT.md` §4.3b. `scripts/server-setup.sh` now does this automatically. Ubuntu's `docker-ce` packages are unaffected. |
+| `readonly variable` when scripting an id into a shell var | `UID` (and `EUID`, `PPID`) are readonly in bash. Assigning `UID=$(...)` silently fails and the shell's own uid (e.g. `1000`) is substituted instead — which then reaches the API as a bogus primary key. Cost a false "assign occupancy failed" during the staging smoke test. | Never use `UID` as a variable name in scripts. Use `UNIT_ID`, `unit_id`, etc. |
+| `docker compose exec -T` eats the rest of a script | `exec -T` reads stdin. Inside a heredoc or piped script it consumes everything after its own line, so subsequent commands silently never run. | Always append `< /dev/null` to a non-interactive `docker compose exec -T`. |
+
+## 11. Observability
+
+Everything below is read-only and works identically locally and on the EC2 staging host.
+
+### Logs
+
+```bash
+docker compose logs backend                 # Django / Gunicorn
+docker compose logs -f backend              # follow live
+docker compose logs --tail=100 backend      # bounded
+docker compose logs --since 15m backend     # time-windowed
+docker compose logs frontend                # nginx access + error log
+docker compose logs db                      # PostgreSQL
+docker compose logs                         # all services, interleaved
+
+# Django's own log file, on the backend_logs volume
+docker compose exec backend tail -100 /app/logs/karosl.log
+```
+
+Helper: `./scripts/docker-logs.sh backend -f`, `./scripts/docker-logs.sh --errors`.
+
+### Counting problems rather than eyeballing them
+
+```bash
+docker compose logs backend  2>&1 | grep -ciE 'traceback|ERROR '   # app errors
+docker compose logs db       2>&1 | grep -ci FATAL                 # db failures
+docker compose logs frontend 2>&1 | grep -cE '" 5[0-9][0-9] '      # nginx 5xx
+docker compose logs frontend 2>&1 | grep -cE '" 4[0-9][0-9] '      # nginx 4xx
+```
+
+A 4xx count above zero is normal — it includes every deliberate 401 from an unauthenticated probe. A **5xx count above zero is a real signal.**
+
+### Containers, resources, disk
+
+```bash
+docker compose ps                      # status + health of each service
+docker compose ps -a                   # includes exited/failed containers
+docker ps -a --filter status=exited    # failed containers specifically
+docker inspect -f '{{.State.Health.Status}} restarts={{.RestartCount}}' karosl-backend-1
+docker stats --no-stream               # per-container CPU / memory
+free -h                                # host memory + swap
+df -h /                                # host disk — a full disk breaks builds and Postgres
+docker system df                       # image / volume / build-cache usage
+```
+
+Helper: `./scripts/docker-logs.sh --status` bundles status, resources, and disk in one call.
+
+### Application state
+
+```bash
+docker compose exec backend python manage.py check            # config sanity
+docker compose exec backend python manage.py check --deploy   # security posture
+docker compose exec backend python manage.py migrate --check   # exit 0 = nothing pending
+docker compose exec backend python manage.py showmigrations
+curl -s localhost/api/health/                                  # liveness + DB connectivity
+```
+
+## 12. Backup & recovery (staging, PostgreSQL in a container)
+
+Staging runs PostgreSQL as a container with its data on the `postgres_data` named volume. That volume survives `docker compose down` and an EC2 reboot, but **not** `docker compose down -v` and **not** instance termination. Until RDS arrives (Phase 3), `pg_dump` is the whole disaster-recovery story — so it needs to be a habit, not a plan.
+
+Two independent mechanisms exist; they are not interchangeable:
+
+| Mechanism | Covers | Does not cover |
+|---|---|---|
+| **`pg_dump`** (below) | The entire database — every table, including `AuditLog` and `Backup` rows, users, and tokens | Nothing; it is a full logical dump |
+| **KarosL's own `BackupService`** (`/api/backups/`, JSON exports on the `backend_backups` volume) | The 8 business models (Property, Section, Unit, PricingRule, Student, Occupancy, Payment, Receipt) | **Users, auth tokens, `AuditLog`, and `Backup` records** — by design (`docs/BUG_QUEUE.md`) |
+
+For host loss, `pg_dump` is the one that matters.
+
+### Take a dump
+
+Credentials are read from the container's own environment, so they never appear in a command line or shell history:
+
+```bash
+cd ~/apps/karosl
+mkdir -p ~/backups && chmod 700 ~/backups
+OUT=~/backups/karosl-staging-$(date +%F-%H%M).sql
+
+docker compose exec -T db sh -c \
+  'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' \
+  < /dev/null > "$OUT"
+
+chmod 600 "$OUT"
+ls -l "$OUT"                      # confirm it exists and is non-trivial in size
+head -1 "$OUT"                    # confirm it is a real dump header
+grep -c 'CREATE TABLE' "$OUT"     # confirm schema is present
+grep -c '^COPY '        "$OUT"    # confirm data blocks are present
+```
+
+A dump that exists but is 0 bytes is the classic silent failure — **always check the size**, not just the exit code.
+
+### Copy it off the server
+
+The instance is the single point of failure, so a backup that only lives on it is not a backup:
+
+```bash
+# From your workstation
+scp -i ~/.ssh/karosl-staging-key.pem \
+  ec2-user@<EC2_PUBLIC_IP>:'~/backups/karosl-staging-*.sql' ./
+```
+
+Store it somewhere that is not the EC2 instance. (S3 with a lifecycle policy is Phase 4; until then, off-box local storage is still infinitely better than on-box.)
+
+### Restore into a disposable database — never over the live one
+
+```bash
+# Create a throwaway database alongside the live one
+docker compose exec -T db sh -c \
+  'psql -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE karosl_restore_test;"' < /dev/null
+
+# Restore the dump into it
+docker compose exec -T db sh -c \
+  'psql -q -U "$POSTGRES_USER" -d karosl_restore_test' < ~/backups/<dump>.sql
+
+# Compare row counts against the live database, then clean up
+docker compose exec -T db sh -c \
+  'psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE karosl_restore_test;"' < /dev/null
+```
+
+⚠️ **Risk note.** Restoring into the live `karosl` database with a `--clean` dump **drops and recreates every table**, destroying anything created since the dump. Never point a restore at the live database to "test" it. The disposable-database pattern above gives the same confidence with none of the risk.
+
+### Confirm the backup is not publicly reachable
+
+Backups live in `~/backups` (mode 700) on the instance, outside any container and outside nginx's web root, so there is no URL that serves them. Verify rather than assume:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' localhost/backups/<dump>.sql   # expect 404
+stat -c '%A %U:%G' ~/backups                                            # expect drwx------
+```

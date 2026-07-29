@@ -387,7 +387,31 @@ docker compose up -d      # recreates the backend with the new env
 
 No image rebuild is needed — `VITE_API_BASE_URL=/api` is relative, so the frontend bundle does not contain the IP at all.
 
-## 13a. Cleanup and cost safety — live instance commands
+## 13a. Cost safety — resource inventory and cleanup
+
+### What exists (KarosL staging, `eu-north-1`)
+
+| Resource | Identifier | Billing behaviour |
+|---|---|---|
+| EC2 instance | `i-0afd1871b46296500` (`karosl-staging-ec2`), `t3.micro` | Charged only while **running**. Stop it and compute billing stops immediately. |
+| EBS root volume | 10 GB gp3, encrypted, delete-on-termination | Charged **even while the instance is stopped**. A few cents a month at this size. |
+| Security group | `karosl-staging-sg` (`sg-065fb018e22aa18a5`) | Free |
+| Key pair | `karosl-staging-key` | Free |
+| Public IPv4 | auto-assigned, **no Elastic IP** | Charged while the instance runs; **nothing** accrues while stopped, because there is no EIP to sit idle. |
+
+### Intentionally NOT created
+
+**RDS** · **S3** · **Load Balancer / ALB** · **NAT Gateway** · **ECS / Fargate** · **Elastic IP** · **extra EBS volumes**
+
+Each of these bills 24/7 regardless of traffic. An ALB and a NAT Gateway are ~$16–32/month **each**, always on, and neither adds anything to a single-instance staging box. This is the main reason staging costs cents rather than tens of dollars.
+
+> ⚠️ **Other projects share this AWS account.** As of 2026-07-29 `eu-north-1` also contains `dc-intern-postgres` (RDS `db.t4g.micro`, 20 GB, running) and `dc-intern-backend` (EC2, stopped, **with Elastic IP `16.192.137.239` still attached** — an unassociated/idle EIP bills hourly). Neither belongs to KarosL and neither was created or modified by this work, but both affect the account's bill and the shared budget alarm. Worth a look if those projects are finished.
+
+### Reminder: stop the instance when not testing
+
+This is the single most effective cost control available here. See the commands below.
+
+## 13b. Cleanup commands — live instance
 
 Nothing here runs automatically. Each command is deliberate.
 

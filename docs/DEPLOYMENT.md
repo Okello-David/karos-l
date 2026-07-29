@@ -104,9 +104,16 @@ See `docs/DEVOPS.md` §5 for the full table of which `.env.example` file feeds w
 
 See `docs/DEVOPS.md` §8 for the full list (no CI/CD, no S3 yet, single-replica assumption, no TLS termination locally). These are expected at this stage of the Cloud Engineering Phase and are not regressions.
 
-## AWS Staging — deployed 2026-07-29
+## AWS Staging — deployed and verified 2026-07-29
 
 Staging is **live** in `eu-north-1` on instance `i-0afd1871b46296500` (`karosl-staging-ec2`), behind security group `karosl-staging-sg`, with PostgreSQL still in a container. Full record, commands, and troubleshooting: `docs/AWS_EC2_DEPLOYMENT.md`.
+
+**Post-deployment verification (2026-07-29):** 14/14 smoke-test workflows pass through the public IP; all three containers healthy with 0 restarts and 0 errors in logs; security review all-pass (`DEBUG=False`, secrets only in the server `.env`, only port 80 public, 8000 on loopback, 5432 unpublished, SSH restricted, no demo account). Details in `docs/AWS_STAGING_CHECKLIST.md` §4 and `docs/PROJECT_STATE.md`.
+
+- **Observability** — logs, error counting, resource and disk inspection: `docs/DEVOPS.md` §11.
+- **Backup & recovery** — `pg_dump`, copying the dump off the instance, and the safe disposable-database restore pattern: `docs/DEVOPS.md` §12.
+
+**Accepted staging limitations:** no HTTPS (login travels in plaintext — so no real tenant data), no automated backups, single point of failure, ephemeral public IP.
 
 ### Cost safety while it exists
 

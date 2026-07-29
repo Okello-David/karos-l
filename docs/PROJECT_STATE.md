@@ -1,5 +1,33 @@
 # Project State
 
+## Post-deployment verification & hardening pass (2026-07-29)
+
+A verification and hardening pass was run against the live staging deployment. **No business features added, no UI changes, no application code changed, no new AWS resources created.**
+
+### Smoke test — 14/14 workflows pass
+
+Exercised against the live public IP as real authenticated HTTP calls: frontend load, login, session persistence, dashboard, create property → section → unit, register occupant, assign occupancy, record payment, receipt JSON + **valid PDF**, Property Explorer hierarchy with live occupancy counts, logout with immediate token invalidation, and 401 on six protected routes unauthenticated. The **over-capacity guard** was also confirmed still enforced (a third assignment to a capacity-2 unit was rejected).
+
+One apparent failure was traced to the **test harness, not the product**: `UID` is readonly in bash, so a captured unit id was silently replaced by the shell's own uid. Documented in `docs/DEVOPS.md` §10 so it doesn't cost anyone an hour again.
+
+### Container health — clean
+
+All three services `Up (healthy)` with `restart: unless-stopped` and **0 restarts** since launch. 40 migrations applied, `migrate --check` clean. **0 backend tracebacks/ERRORs, 0 PostgreSQL FATALs, 0 nginx 5xx.** Django admin static assets (200), SPA bundle (200), and nginx `/healthz` (200) all serving.
+
+### Security review — all checks pass
+
+`DEBUG=False`; `SECRET_KEY` 50 chars, not the insecure placeholder, present only in the server's `.env` (mode `600`, gitignored, 0 uncommitted files in the repo); `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, and `CORS_ALLOWED_ORIGINS` all correctly scoped to the EC2 IP with `CORS_ALLOW_ALL_ORIGINS=False`. Host listening sockets are **only** `:80` (public), `:22` (SG-restricted to the admin `/32`), and `:8000` **bound to `127.0.0.1` only** — PostgreSQL is not published to the host at all. Externally confirmed: ports **8000, 5432, 5173, and 443 are all closed**; only 80 is open. **No `demo` account exists** on staging; the only account is `karosadmin`.
+
+`manage.py check --deploy` reports 4 warnings, all four being TLS-related (`SECURE_HSTS_SECONDS`, `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`) — the expected and documented consequence of HTTP-only staging, resolved by the HTTPS sprint. Notably **absent** are `W018` (DEBUG on) and `W009` (weak SECRET_KEY), which is positive evidence rather than silence.
+
+### Known limitations (staging, accepted)
+
+- **No HTTPS.** Traffic is plaintext HTTP, including the login POST. Acceptable only because staging holds no real data — and the reason no real tenant data may be entered.
+- **No automated backups.** `pg_dump` is manual; the `postgres_data` volume survives reboots and `docker compose down`, but not `down -v` or instance termination.
+- **Single point of failure.** One instance, one container database, no replication.
+- **Public IP is ephemeral** (no Elastic IP) — it changes on stop/start and requires a `.env` origin update each time.
+- KarosL's own `BackupService` does **not** cover users, auth tokens, `AuditLog`, or `Backup` rows; only `pg_dump` is a complete backup.
+
 ## AWS staging DEPLOYED (2026-07-29)
 
 **KarosL is live on AWS staging.** Region `eu-north-1`, instance `i-0afd1871b46296500` (`karosl-staging-ec2`, `t3.micro`, Amazon Linux 2023), security group `karosl-staging-sg` (`sg-065fb018e22aa18a5`), 10 GB encrypted gp3 root volume, auto-assigned public IP. The stack is the unmodified `docker-compose.yml` — nginx/React + Gunicorn/Django + PostgreSQL container — deployed from the new `cloud-deployment` branch into `/home/ec2-user/apps/karosl`.

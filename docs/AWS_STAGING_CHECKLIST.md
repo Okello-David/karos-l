@@ -123,17 +123,26 @@ Run against `http://<EC2_PUBLIC_IP>` from your own browser, not from the server.
 - [x] **Deep-link refresh works** — `/dashboard` returns 200 via Nginx `try_files`. ✅ 2026-07-29
 - [x] **API reachable and auth enforced** — `POST /api/auth/login/` with bad credentials returns a Django validation error (400), not a gateway error; `/api/properties/`, `/api/occupants/`, `/api/dashboard/` all return 401 unauthenticated. ✅ 2026-07-29
 - [x] **Ports 8000 and 5432 unreachable from the internet.** ✅ verified externally
-- [x] **Login works** with the superuser created above. ✅ 2026-07-29 — `POST /api/auth/login/` through the public IP returns a DRF token and the correct user object (`is_staff`/`is_superuser` true); `/api/dashboard/`, `/api/properties/`, `/api/occupants/` all return 200 with that token. Browser session-persistence check still to be done by hand.
-- [ ] **Dashboard loads** with live figures (zeroes on an empty database are correct, not a failure).
-- [ ] **Property creation works** — Administration → Properties → create. Confirms a real authenticated write through to Postgres.
-- [ ] **Section + unit creation works** under that property.
-- [ ] **Occupant creation works** — register an occupant.
-- [ ] **Occupancy assignment works** — assign that occupant to the unit.
-- [ ] **Payment workflow works** *(needs the staging data above)* — record a payment, confirm the balance updates and a receipt is auto-generated and downloadable as PDF.
-- [ ] **Logs are visible and clean** — `docker compose logs backend | tail -50`, no tracebacks; `docker compose logs frontend` shows your real requests, not only `/healthz`.
+- [x] **Login works** with the superuser created above. ✅ 2026-07-29 — `POST /api/auth/login/` through the public IP returns a DRF token and the correct user object (`is_staff`/`is_superuser` true).
+- [x] **Session persists** — the issued token remains valid across separate connections. ✅
+- [x] **Dashboard loads** with live figures. ✅ returns real aggregates (`total_capacity`, `total_occupied`, `occupancy_rate`, `total_students`, `recent_payments`) and updated correctly after writes.
+- [x] **Property creation works** ✅ — `POST /api/admin/properties/` → 201, persisted.
+- [x] **Section + unit creation works** ✅ — section and a capacity-2 unit created under that property.
+- [x] **Occupant creation works** ✅ — `POST /api/occupants/` → 201.
+- [x] **Occupancy assignment works** ✅ — `POST /api/occupancy/` → 201, with correct `student_full_name` / `unit_name` / `property_name` denormalization.
+- [x] **Over-capacity prevention works** ✅ — a third assignment to a capacity-2 unit was rejected: *"Unit 'A-101' is at full capacity (2)."*
+- [x] **Payment workflow works** ✅ — payment recorded, receipt **auto-generated** (`RCP-2026-00002`), and the PDF downloads as a valid `application/pdf`.
+- [x] **Property Explorer works** ✅ — full property → section → unit hierarchy with live occupancy counts (`2/2`, `1/2`, `0/3`).
+- [x] **Logout works** ✅ — returns 200 and the token is immediately rejected (401) afterwards.
+- [x] **Protected routes** ✅ — `/api/dashboard/`, `/api/properties/`, `/api/occupants/`, `/api/payments/`, `/api/admin/properties/`, `/api/audit/` all 401 without a token.
+- [x] **Logs are visible and clean** ✅ — 0 backend tracebacks/ERRORs, 0 db FATALs, 0 nginx 5xx. (4xx count is non-zero and expected: the deliberate unauthenticated probes above.)
 - [ ] **Data survives a container restart** — `docker compose restart`, confirm the property you created is still there.
 - [ ] **Data survives an instance reboot** — `sudo reboot`, wait, SSH back in, confirm containers came back (`restart: unless-stopped`) and the data is intact. This is the one that actually tests the `postgres_data` volume.
-- [ ] **Staging data is test data only.** No real tenant names, no real payment records.
+- [x] **Staging data is test data only.** ✅ Only synthetic records (`Smoke Test Hostel`, `Karos Garden`, `Smoke Tester`, `Cap Two/Three`). No real tenant names or payment records.
+
+> **Still to execute (2026-07-29):** the `pg_dump` backup drill (`docs/DEVOPS.md` §12) and the container-restart / EC2-reboot survival checks. The procedures are written and reviewed; they were not run in the verification pass. Both are quick and non-destructive apart from the reboot, which is safe given `restart: unless-stopped` and the `postgres_data` volume — but should be done with someone watching.
+
+> **Smoke-test result (2026-07-29): 14/14 workflows pass**, plus the over-capacity guard. One initial failure — "assign occupancy" — was traced to a **bug in the test script, not the app**: `UID` is a readonly variable in bash, so `UID=$(...)` silently kept the shell's own uid (`1000`) and sent it as the unit primary key. Retried with a correctly-named variable and it passed.
 
 ## 5. Cleanup
 

@@ -1,5 +1,32 @@
 # Release Plan
 
+## Cloud Engineering Phase: Post-Deployment Verification & Hardening — 2026-07-29
+
+Verification and documentation pass against the live AWS staging deployment. **No business features, no UI changes, no application code changed, no new AWS resources created.**
+
+**Result: staging is stable and secure enough for its purpose. No blockers found in the application.**
+
+- **Smoke test 14/14** through the live public IP, plus the over-capacity guard — full chain from browser through security group → nginx → Gunicorn → PostgreSQL, including receipt PDF generation and token invalidation on logout.
+- **Container health clean** — 3/3 healthy, 0 restarts, 40 migrations applied, 0 tracebacks, 0 db FATALs, 0 nginx 5xx.
+- **Security review all-pass** — `DEBUG=False`, strong `SECRET_KEY` confined to the server `.env`, correct host/CSRF/CORS scoping, only port 80 public, 8000 on loopback, 5432 unpublished, SSH restricted to the admin `/32`, and **no demo account**.
+- **Backup/recovery procedure documented** in `docs/DEVOPS.md` §12, including the safe disposable-database restore pattern and the explicit warning that a `--clean` restore into the live database destroys everything created since the dump.
+
+### Known limitations, accepted for staging
+
+No HTTPS (login credentials cross the wire in plaintext); no automated backups; single point of failure; ephemeral public IP; `BackupService` does not cover users/tokens/audit log.
+
+### Recommendation for the next sprint: **HTTPS / domain — before RDS, before S3**
+
+The three candidate next steps are not equally urgent, and the ordering matters:
+
+1. **HTTPS + domain — do this next.** It is the only limitation that is a genuine *security* defect rather than a durability one. Right now every login POST, including the admin password, crosses the internet in cleartext, and all four `check --deploy` warnings resolve the moment TLS exists. It also removes the ephemeral-IP friction (a DNS name survives what an IP does not), and it is the cheapest of the three — a Let's Encrypt certificate on the existing nginx container costs nothing, with no new AWS resources. Concretely: register/point a domain, add an ACME companion or certbot to the frontend container, open 443 in the security group, then flip `SECURE_SSL_REDIRECT`, `CSRF_COOKIE_SECURE`, and `SESSION_COOKIE_SECURE` back to `True` and update the origins to `https://`.
+2. **S3 for backups — second.** Manual `pg_dump` on the same instance that holds the only copy of the data is the largest *durability* gap. This is cheap (pennies) and small in scope, and it is what makes the staging data survive losing the instance.
+3. **RDS — defer.** It is the most expensive step and buys managed durability that staging does not yet need, given it holds only synthetic data. Take it when KarosL is about to hold data you cannot afford to lose — which is a production decision, not a staging one.
+
+Do **not** treat "proceed to RDS" as the default next move because it is the next numbered phase in `docs/AWS_DEPLOYMENT_PLAN.md`. The phases are ordered by architectural progression, not by urgency; TLS is the item with a real security consequence today.
+
+---
+
 ## Cloud Engineering Phase: AWS Staging Preparation — 2026-07-29
 
 Documentation and deployment-assets pass. **No AWS resources created, nothing deployed, no application code, architecture, or business features changed.** KarosL has passed local Docker production simulation, so this pass produced everything needed to *execute* Phase 2 of `docs/AWS_DEPLOYMENT_PLAN.md`: a single EC2 instance running the same Compose stack (Nginx/React → Gunicorn/Django → PostgreSQL container) over HTTP.
