@@ -1,0 +1,46 @@
+# KarosL staging — HTTPS stage 2 of 2: TLS termination and secure Django flags.
+#
+# Apply only AFTER a Let's Encrypt certificate exists for ${STAGING_DOMAIN}:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
+#
+# Requires STAGING_DOMAIN in the server .env (never committed), e.g.
+#   STAGING_DOMAIN=app.example.com
+#
+# See docs/DOMAIN_HTTPS_PLAN.md for the full runbook and rollback.
+
+services:
+  frontend:
+    # Port 80 stays published by the base file and is still required: it serves
+    # the HTTP->HTTPS redirect and the ACME challenge that every renewal needs.
+    ports:
+      - "443:443"
+    environment:
+      # Substituted into the nginx template at container start. The filter
+      # limits envsubst to this one variable so nginx's own $host/$uri/$scheme
+      # are not replaced with empty strings.
+      STAGING_DOMAIN: ${STAGING_DOMAIN:?set STAGING_DOMAIN in .env}
+      NGINX_ENVSUBST_FILTER: STAGING_DOMAIN
+    volumes:
+      - ./deploy/nginx/staging-https.conf.template:/etc/nginx/templates/default.conf.template:ro
+      # Mounted whole and at the same path on purpose: live/<domain>/*.pem are
+      # relative symlinks into archive/<domain>/, so mounting only the live
+      # subdirectory yields dangling links and nginx fails to start.
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+
+  backend:
+    environment:
+      # These override the base docker-compose.yml, which hardcodes all three to
+      # "False" in its own environment: block — and an environment: value beats
+      # env_file, so setting them in .env alone would silently do nothing.
+      SECURE_SSL_REDIRECT: "True"
+      CSRF_COOKIE_SECURE: "True"
+      SESSION_COOKIE_SECURE: "True"
+      # Required with SECURE_SSL_REDIRECT behind a TLS-terminating proxy;
+      # without it Django never sees a request as secure and redirect-loops.
+      USE_X_FORWARDED_PROTO: "True"
+      # Short on staging: the hostname is derived from an ephemeral public IP
+      # that will later belong to someone else, and HSTS is cached by browsers
+      # long after this deployment is gone. Production keeps the 1-year default.
+      SECURE_HSTS_SECONDS: "${SECURE_HSTS_SECONDS:-300}"

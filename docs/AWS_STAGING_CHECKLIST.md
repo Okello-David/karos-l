@@ -47,8 +47,8 @@ Step-by-step commands for Sections 3–4 live in `docs/AWS_EC2_DEPLOYMENT.md`. T
 | Type | Protocol | Port | Source | Why |
 |---|---|---|---|---|
 | SSH | TCP | 22 | **My IP only** (`x.x.x.x/32`) | Administration. Never `0.0.0.0/0` — port 22 open to the world gets credential-stuffed within minutes of the instance booting. |
-| HTTP | TCP | 80 | `0.0.0.0/0` | Temporary staging access. Acceptable **only** because staging holds no real data. |
-| HTTPS | TCP | 443 | *(not yet)* | **Deferred** to the domain/SSL sprint. Do not open a port nothing is listening on. |
+| HTTP | TCP | 80 | `0.0.0.0/0` | **Still required after HTTPS**: it carries the HTTP→HTTPS redirect and the Let's Encrypt `http-01` challenge, which runs at *every* renewal. Closing it breaks renewal silently, surfacing ~60 days later as an expired certificate. |
+| HTTPS | TCP | 443 | `0.0.0.0/0` | ✅ **Open since 2026-07-31** (`sgr-0b29986c961ba61aa`) — TLS terminates at the frontend container's nginx. See `docs/DOMAIN_HTTPS_PLAN.md`. |
 
 - [ ] SSH restricted to my IP (`__________/32`). If on a dynamic/ISP-rotated address, plan to update it — or use EC2 Instance Connect / SSM Session Manager instead of an open port.
 - [ ] HTTP 80 open to `0.0.0.0/0`, and understood as temporary.

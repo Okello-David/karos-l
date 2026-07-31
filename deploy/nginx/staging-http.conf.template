@@ -1,0 +1,61 @@
+# KarosL staging — stage 1 of 2: HTTP only, with the ACME challenge path served.
+#
+# Purpose: let Certbot complete a Let's Encrypt http-01 challenge while the site
+# keeps serving normally, BEFORE any certificate exists. nginx refuses to start
+# if an ssl_certificate file is missing, so the TLS config cannot be applied
+# until after issuance — hence two stages.
+#
+# Mounted over /etc/nginx/templates/default.conf.template. The nginx image's
+# entrypoint (20-envsubst-on-templates.sh) renders it to
+# /etc/nginx/conf.d/default.conf at container start, replacing the image's
+# baked-in config. This keeps TLS config out of the image, so enabling HTTPS
+# needs no rebuild (see docs/DOMAIN_HTTPS_PLAN.md).
+#
+# Everything below the ACME block is identical to frontend/nginx.conf.
+
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Certbot writes the challenge token under this webroot on the host; the
+    # directory is bind-mounted read-only. "^~" so it wins over the SPA
+    # fallback without regex evaluation.
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type "text/plain";
+    }
+
+    location /healthz {
+        default_type text/plain;
+        return 200 "ok";
+    }
+
+    # Reverse-proxy API calls to the backend service so the SPA's default
+    # relative "/api" base URL (see src/services/api.js) works unchanged,
+    # mirroring the Vite dev server's proxy in vite.config.js.
+    location /api/ {
+        proxy_pass http://backend:8000/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /admin/ {
+        proxy_pass http://backend:8000/admin/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /static/ {
+        proxy_pass http://backend:8000/static/;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

@@ -1,0 +1,17 @@
+# KarosL staging — HTTPS stage 1 of 2: serve the ACME challenge over HTTP.
+#
+# Apply while requesting the FIRST certificate, before any cert exists:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.acme.yml up -d frontend
+#
+# Deliberately changes nothing about Django and does not publish 443: at this
+# point there is no certificate, so forcing HTTPS would take the site down.
+# Once Certbot has issued the certificate, switch to docker-compose.https.yml.
+#
+# See docs/DOMAIN_HTTPS_PLAN.md.
+
+services:
+  frontend:
+    volumes:
+      - ./deploy/nginx/staging-http.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - /var/www/certbot:/var/www/certbot:ro

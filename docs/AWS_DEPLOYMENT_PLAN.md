@@ -79,7 +79,9 @@ Run the production-like stack (`docker compose up --build`) on a developer machi
 
 ### Phase 2 — Single EC2 deployment using Docker Compose
 
-Provision **one** small EC2 instance (Amazon Linux 2023 or Ubuntu LTS), install Docker + the Compose plugin, clone the repo (or pull pre-built images later), copy a production `.env`, and run the **same `docker-compose.yml`** already used locally. Attach an Elastic IP so the address is stable. Open only ports 22 (SSH, ideally restricted to your IP) and 80/443 in the security group.
+Provision **one** small EC2 instance (Amazon Linux 2023 or Ubuntu LTS), install Docker + the Compose plugin, clone the repo (or pull pre-built images later), copy a production `.env`, and run the **same `docker-compose.yml`** already used locally. Open only ports 22 (SSH, restricted to your IP) and 80/443 in the security group.
+
+> **Elastic IP — deliberately NOT attached.** An EIP on a *running* instance costs the same as the auto-assigned public IPv4 (~$0.005/hr), but an EIP on a *stopped* instance keeps billing while an auto-assigned address does not. Since this instance is stopped between sessions, no-EIP is strictly cheaper. The cost is that the address changes on restart — handled by the runbook in `docs/DOMAIN_HTTPS_PLAN.md` §9. Attach one only when the instance runs continuously or gets a real domain.
 
 - Database: **PostgreSQL in a Docker container** on the EC2 box (the `db` service, unchanged), with its data on the named `postgres_data` volume backed by the instance's EBS volume.
 - This is the **staging / demo** deployment. It is real, reachable, and cheap.
@@ -88,7 +90,9 @@ Provision **one** small EC2 instance (Amazon Linux 2023 or Ubuntu LTS), install 
 
 **How to execute it:** `docs/AWS_STAGING_CHECKLIST.md` (the tick-list) and `docs/AWS_EC2_DEPLOYMENT.md` (the command runbook).
 
-**Exit criteria:** app reachable at the EC2 Elastic IP (or a test domain), smoke tests pass (Task 8), backups confirmed to survive an instance reboot.
+**Exit criteria:** app reachable at the EC2 public IP (or a test domain), smoke tests pass (Task 8), backups confirmed to survive an instance reboot.
+
+**Status: complete.** Deployed 2026-07-29, verified 2026-07-29, and reachable over **HTTPS at a domain since 2026-07-31** (`docs/DOMAIN_HTTPS_PLAN.md`). TLS was added at the instance's own nginx rather than by moving to Phase 6's ALB + ACM, keeping the no-load-balancer cost guardrail intact.
 
 ### Phase 3 — Move the database to Amazon RDS PostgreSQL
 
@@ -323,7 +327,8 @@ Because steps 1–4 are all data-copy and env-var changes — no code rewrite �
 - [ ] **`DEBUG=False`** in the production environment.
 - [ ] **`ALLOWED_HOSTS`** set to the real domain / EC2 address (not `localhost`).
 - [ ] **CSRF / CORS configured** — `CSRF_TRUSTED_ORIGINS` and `CORS_ALLOWED_ORIGINS` set to the real origin(s); `CORS_ALLOW_ALL_ORIGINS=False`.
-- [ ] **HTTPS configured** — TLS terminating in front of the app; re-enable `SECURE_SSL_REDIRECT` / `CSRF_COOKIE_SECURE` / `SESSION_COOKIE_SECURE` (which were deliberately disabled for the TLS-less local compose env — `docs/DEVOPS.md`, `docs/CHANGELOG.md`).
+- [x] **HTTPS configured** — done on staging 2026-07-31: TLS terminates at the frontend nginx with a Let's Encrypt certificate, and `docker-compose.https.yml` re-enables `SECURE_SSL_REDIRECT` / `CSRF_COOKIE_SECURE` / `SESSION_COOKIE_SECURE` (deliberately disabled for the TLS-less local compose env) **plus `USE_X_FORWARDED_PROTO`**, without which Django redirect-loops behind the proxy. Re-verify on production. `docs/DOMAIN_HTTPS_PLAN.md`.
+- [ ] **Real domain** — replace the sslip.io staging hostname with a purchased domain, so the address survives an IP change (`docs/DOMAIN_HTTPS_PLAN.md` §2).
 - [ ] **Backups verified** — automated backups running (RDS or backup service → S3) and a restore tested against the real backend.
 - [ ] **Admin account secured** — strong, unique superuser password; demo/default accounts gone; admin not using a shared or dev credential.
 - [ ] **Logs reviewed** — CloudWatch (or container) logs checked for errors/tracebacks; log retention set (Task 2).

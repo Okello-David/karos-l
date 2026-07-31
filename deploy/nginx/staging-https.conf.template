@@ -1,0 +1,98 @@
+# KarosL staging — stage 2 of 2: TLS termination + HTTP->HTTPS redirect.
+#
+# Applied only AFTER a certificate exists at
+# /etc/letsencrypt/live/${STAGING_DOMAIN}/ — nginx will not start otherwise.
+#
+# ${STAGING_DOMAIN} is substituted at container start by the nginx image's
+# entrypoint. NGINX_ENVSUBST_FILTER=STAGING_DOMAIN restricts substitution to
+# that one name so nginx's own $host / $uri / $scheme survive untouched. This
+# is why the real staging hostname never has to be committed to this repo.
+#
+# The application location blocks are copied verbatim from frontend/nginx.conf;
+# only the listen/TLS lines and the redirect server are new.
+
+# ---------------------------------------------------------------------------
+# Port 80: ACME challenges and health, everything else redirected to HTTPS.
+# ---------------------------------------------------------------------------
+server {
+    listen 80;
+    server_name _;
+
+    # Must stay reachable over plain HTTP: Let's Encrypt validates renewals over
+    # port 80 every ~60 days. Redirecting this would break unattended renewal.
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type "text/plain";
+    }
+
+    # Also stays on HTTP deliberately. The image's HEALTHCHECK runs
+    # "wget http://127.0.0.1/healthz" from inside the container; if that were
+    # redirected to HTTPS, wget would follow it to https://127.0.0.1/, fail
+    # certificate verification against the hostname, and mark a perfectly
+    # healthy container unhealthy.
+    location /healthz {
+        default_type text/plain;
+        return 200 "ok";
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Port 443: the actual application.
+# ---------------------------------------------------------------------------
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    ssl_certificate     /etc/letsencrypt/live/${STAGING_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${STAGING_DOMAIN}/privkey.pem;
+
+    ssl_protocols             TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache         shared:SSL:10m;
+    ssl_session_timeout       1d;
+    ssl_session_tickets       off;
+
+    location /healthz {
+        default_type text/plain;
+        return 200 "ok";
+    }
+
+    # Reverse-proxy API calls to the backend service so the SPA's default
+    # relative "/api" base URL (see src/services/api.js) works unchanged,
+    # mirroring the Vite dev server's proxy in vite.config.js.
+    #
+    # X-Forwarded-Proto is now "https", which is what lets Django recognise the
+    # request as secure via SECURE_PROXY_SSL_HEADER (backend/config/settings.py).
+    # Without that setting Django would 301 to HTTPS on an already-HTTPS
+    # request, producing an infinite redirect loop.
+    location /api/ {
+        proxy_pass http://backend:8000/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /admin/ {
+        proxy_pass http://backend:8000/admin/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /static/ {
+        proxy_pass http://backend:8000/static/;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

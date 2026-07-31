@@ -8,7 +8,8 @@ This document covers deploying KarosL's containers. For architecture rationale a
 |---|---|---|
 | **Local production-like** (Docker Compose on a dev machine) | ✅ Verified | This document |
 | **AWS staging** (single EC2 + Docker Compose) | ✅ **Live since 2026-07-29** — `eu-north-1`, instance `i-0afd1871b46296500` | `docs/AWS_STAGING_CHECKLIST.md` + `docs/AWS_EC2_DEPLOYMENT.md` |
-| **AWS production** (RDS, S3, CloudWatch, TLS) | ⛔ Not started, deliberately deferred | `docs/AWS_DEPLOYMENT_PLAN.md` Phases 3–6 |
+| **AWS staging — domain + HTTPS** | ✅ Live since 2026-07-31 | `docs/DOMAIN_HTTPS_PLAN.md` |
+| **AWS production** (RDS, S3, CloudWatch) | ⛔ Not started, deliberately deferred | `docs/AWS_DEPLOYMENT_PLAN.md` Phases 3–6 |
 
 ## Required pre-deployment step for any AWS target: cost safety
 
@@ -113,7 +114,21 @@ Staging is **live** in `eu-north-1` on instance `i-0afd1871b46296500` (`karosl-s
 - **Observability** — logs, error counting, resource and disk inspection: `docs/DEVOPS.md` §11.
 - **Backup & recovery** — `pg_dump`, copying the dump off the instance, and the safe disposable-database restore pattern: `docs/DEVOPS.md` §12.
 
-**Accepted staging limitations:** no HTTPS (login travels in plaintext — so no real tenant data), no automated backups, single point of failure, ephemeral public IP.
+### HTTPS — added 2026-07-31
+
+Staging is reachable over **HTTPS at a domain**, with a trusted Let's Encrypt certificate, an HTTP→HTTPS redirect,
+and automated renewal. TLS terminates at the existing frontend nginx — **no load balancer, no ACM, no CloudFront,
+no Elastic IP**, and exactly one new inbound port (443).
+
+The domain is an [sslip.io](https://sslip.io) hostname derived from the public IP, which gives real browser-trusted
+HTTPS at zero cost with no registrar. Its one cost is that the hostname changes when the IP does — see the restart
+runbook in `docs/DOMAIN_HTTPS_PLAN.md` §9. **Move to a purchased domain before real users.**
+
+Full record — domain and Elastic IP decisions, nginx/certbot design, Django settings, DNS guide, verification, and
+rollback: **`docs/DOMAIN_HTTPS_PLAN.md`**.
+
+**Accepted staging limitations:** ~~no HTTPS~~ (resolved), **no automated backups** (`pg_dump` is manual — now the
+top remaining gap, because HTTPS is what makes real data plausible), single point of failure, ephemeral public IP.
 
 ### Cost safety while it exists
 

@@ -40,9 +40,36 @@ SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SECURE = _bool_env('CSRF_COOKIE_SECURE', not DEBUG)
 SESSION_COOKIE_SECURE = _bool_env('SESSION_COOKIE_SECURE', not DEBUG)
 SECURE_SSL_REDIRECT = _bool_env('SECURE_SSL_REDIRECT', not DEBUG)
-SECURE_HSTS_SECONDS = 31536000 if SECURE_SSL_REDIRECT else 0
-SECURE_HSTS_INCLUDE_SUBDOMAINS = SECURE_SSL_REDIRECT
-SECURE_HSTS_PRELOAD = SECURE_SSL_REDIRECT
+
+# When TLS terminates at a reverse proxy (nginx on the staging EC2 box, a load
+# balancer later), the request reaching Django arrives over plain HTTP, so
+# request.is_secure() is False and SECURE_SSL_REDIRECT would redirect to HTTPS
+# forever. Trusting the proxy's X-Forwarded-Proto header fixes that — but only
+# where clients genuinely cannot bypass the proxy, since the header is
+# client-settable and a spoofed value would make Django treat a plaintext
+# request as secure. Hence opt-in rather than tied to DEBUG: staging binds
+# Gunicorn to 127.0.0.1 only and nginx always overwrites the header
+# (frontend/nginx.conf), so it is safe there and unsafe for an exposed
+# Gunicorn. See docs/DOMAIN_HTTPS_PLAN.md.
+if _bool_env('USE_X_FORWARDED_PROTO', False):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Overridable because HSTS is a browser-side commitment that outlives the
+# deployment: staging is reached at an IP-derived hostname that will eventually
+# point elsewhere, so it uses a short max-age. Production keeps the one-year
+# default.
+# The container HEALTHCHECK curls http://localhost:8000/api/health/ straight at
+# Gunicorn, bypassing nginx, so that request carries no X-Forwarded-Proto and
+# Django would answer it with a redirect to HTTPS. curl treats a 301 as success,
+# so the check would keep reporting "healthy" while no longer verifying anything
+# — including the database connectivity it exists to test. Exempting the path
+# keeps the healthcheck honest. Externally this is not a bypass: nginx still
+# redirects every non-ACME HTTP request before it reaches Django.
+SECURE_REDIRECT_EXEMPT = [r'^api/health/$']
+
+SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', 31536000)) if SECURE_SSL_REDIRECT else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = SECURE_HSTS_SECONDS > 0
+SECURE_HSTS_PRELOAD = SECURE_HSTS_SECONDS > 0
 
 # ------------------------------------------------------------------
 # Application definition

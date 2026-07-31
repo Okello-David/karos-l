@@ -1,5 +1,59 @@
 # Project State
 
+## Domain + HTTPS on AWS staging (2026-07-31)
+
+**KarosL staging now serves HTTPS at a domain**, with a browser-trusted Let's Encrypt certificate, an HTTP→HTTPS
+redirect, and automated renewal. This closes the limitation that had blocked real use — the login POST is no
+longer plaintext.
+
+**Domain:** `51-20-144-52.sslip.io` — a free wildcard-DNS hostname derived from the public IP. No registrar, no
+DNS account, no cost, and a real certificate. **No Elastic IP was allocated**, and no RDS, NAT Gateway, load
+balancer, ECS/Fargate, or CloudFront was created. Exactly one new inbound port: **443**
+(`sgr-0b29986c961ba61aa`).
+
+**Two problems were found before any change was made.** First, **staging was broken**: the instance had restarted
+that morning and its public IP moved `13.62.49.29` → `51.20.144.52`, but the server `.env` still pinned the old
+address, so every API call returned `400 DisallowedHost`. The SPA still loaded — nginx serves static files
+regardless — so the outage was invisible from the home page. Second, **`SECURE_PROXY_SSL_HEADER` was absent from
+the active settings module**; it exists only in `backend/config/settings_production.py`, which nothing imports.
+Enabling `SECURE_SSL_REDIRECT` behind TLS-terminating nginx without it would have produced an infinite redirect
+loop and taken the whole app down.
+
+**Design:** TLS terminates at the **existing frontend nginx** — not at a load balancer, which keeps the no-ALB
+guardrail intact. Certificates are obtained by certbot on the host in `--webroot` mode (the container owns port
+80, so `--standalone` cannot work) and bind-mounted read-only. The nginx config is **mounted, not baked**, with
+the domain injected via the image's `envsubst` templating, so **enabling HTTPS required no frontend image rebuild**
+— avoiding the known `t3.micro` OOM risk — and **the real hostname is in no committed file**.
+
+**Verified (15/15):** HTTP 301s to HTTPS; SPA and deep-link refresh load over HTTPS; `/api/health/` returns
+`{"status":"ok","database":"ok"}`; certificate valid (`Verify return code: 0`, issuer Let's Encrypt, expires
+2026-10-29); login returns a proper DRF validation error rather than a CSRF/CORS/gateway failure; protected routes
+401; HSTS present; all three containers `Up (healthy)`; **`manage.py check --deploy` reports 0 issues**, down from
+the four TLS warnings; `certbot renew --dry-run` succeeds with the timer enabled; ports 8000/5432/5173 confirmed
+still closed from the internet, 80 and 443 open.
+
+**Two healthcheck traps were found and handled**, either of which would have marked a working container unhealthy
+or — worse — falsely healthy: the frontend's `wget http://127.0.0.1/healthz` must not be redirected to HTTPS
+(certificate verification against a loopback address fails), and the backend's `curl` to Gunicorn bypasses nginx,
+so Django would answer 301 — which `curl -f` treats as success, leaving a healthcheck that no longer tests the
+database. Fixed with a port-80 `/healthz` location and `SECURE_REDIRECT_EXEMPT`.
+
+**Authenticated business workflow re-verified over HTTPS (12/12):** login → dashboard → create property → section
+→ unit → register occupant → assign occupancy → record payment (receipt `RCP-2026-00003` auto-generated) →
+**valid 1-page PDF receipt** → Property Explorer hierarchy → logout → token rejected on reuse. Run with a
+temporary superuser that was deleted afterwards along with every record it created; only `karosadmin` remains.
+
+**Note:** the staging database still holds properties `KG1`/`SMK1`, 5 students, and 2 payments left over from the
+2026-07-29 smoke test — unrelated to this sprint, left untouched, worth clearing before any demo.
+
+**Standing cost of no Elastic IP:** the public IP — and therefore the sslip.io hostname and its certificate —
+changes on every stop/start. Runbook: `docs/DOMAIN_HTTPS_PLAN.md` §9. A purchased domain is recommended before
+real users.
+
+**Cost correction:** an Elastic IP attached to a *running* instance costs the **same** as the auto-assigned public
+IPv4, not extra. It bills only when the instance is stopped — which is exactly this project's usage pattern, and
+is why no EIP was allocated. `dc-intern-backend` remains a live example of that trap.
+
 ## Post-deployment verification & hardening pass (2026-07-29)
 
 A verification and hardening pass was run against the live staging deployment. **No business features added, no UI changes, no application code changed, no new AWS resources created.**

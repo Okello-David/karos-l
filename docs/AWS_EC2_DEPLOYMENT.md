@@ -58,7 +58,8 @@ Step-by-step commands to deploy KarosL to a single EC2 instance running the exis
 
 ```
                      Browser
-                        │  HTTP :80   (HTTPS deferred to the domain/SSL sprint)
+                        │  HTTPS :443 (TLS at nginx) — HTTP :80 redirects
+                        │             see docs/DOMAIN_HTTPS_PLAN.md
                         ▼
               EC2 public IP  <EC2_PUBLIC_IP>
                         │
@@ -99,7 +100,7 @@ Console → EC2 → Launch instance:
 |---|---|---|---|
 | SSH | TCP | 22 | `<MY_IP>/32` — **your IP only** |
 | HTTP | TCP | 80 | `0.0.0.0/0` — temporary staging |
-| ~~HTTPS~~ | TCP | 443 | *deferred to the domain/SSL sprint* |
+| HTTPS | TCP | 443 | `0.0.0.0/0` — **open since 2026-07-31**, see `docs/DOMAIN_HTTPS_PLAN.md` |
 
 **Outbound:** leave the default allow-all — the instance must reach package repos, Docker Hub, and GitHub.
 
@@ -281,7 +282,9 @@ BACKEND_PORT=127.0.0.1:8000
 
 **Auth note:** KarosL uses **DRF Token authentication** (`rest_framework.authentication.TokenAuthentication`, see `backend/config/settings.py`), not JWT. Tokens are database rows, not signed blobs — there is **no separate JWT signing secret to configure**. `SECRET_KEY` remains the only cryptographic secret the app needs.
 
-**TLS note:** `docker-compose.yml` explicitly sets `SECURE_SSL_REDIRECT`, `CSRF_COOKIE_SECURE`, and `SESSION_COOKIE_SECURE` to `False`, which is exactly right for HTTP staging — leaving them on would force an HTTPS redirect to a port nothing is listening on and lock you out entirely. **Flip all three back to `True` in the domain/SSL sprint**, once TLS actually terminates in front of the app.
+**TLS note:** `docker-compose.yml` explicitly sets `SECURE_SSL_REDIRECT`, `CSRF_COOKIE_SECURE`, and `SESSION_COOKIE_SECURE` to `False`, which is exactly right for HTTP-only staging — leaving them on would force an HTTPS redirect to a port nothing is listening on and lock you out entirely.
+
+**As of 2026-07-31 staging runs HTTPS**, and `docker-compose.https.yml` flips all three to `True` — plus `USE_X_FORWARDED_PROTO=True`, without which Django cannot see the proxied request as secure and redirect-loops forever. They are set in that overlay and **not** in `.env`, because an `environment:` value in the base compose file outranks `env_file`. Full runbook: `docs/DOMAIN_HTTPS_PLAN.md`.
 
 ## 6. Build and start
 
@@ -503,7 +506,7 @@ The EC2 public IP is missing from `ALLOWED_HOSTS`, or the instance was restarted
 
 ### CSRF errors — "CSRF verification failed" / 403 on login
 
-`CSRF_TRUSTED_ORIGINS` must contain the **full origin with scheme and no trailing slash**: `http://<EC2_PUBLIC_IP>`, not `<EC2_PUBLIC_IP>` and not `http://<EC2_PUBLIC_IP>/`. If you have added TLS, it must say `https://`, matching what the browser actually uses.
+`CSRF_TRUSTED_ORIGINS` must contain the **full origin with scheme and no trailing slash**: `http://<EC2_PUBLIC_IP>`, not `<EC2_PUBLIC_IP>` and not `http://<EC2_PUBLIC_IP>/`. Now that TLS is in place it must say `https://<STAGING_DOMAIN>`, matching what the browser actually uses — a scheme mismatch here is the usual cause of 403-on-login.
 
 ### CORS errors in the browser console
 
@@ -511,7 +514,7 @@ Usually a red herring on this architecture: the SPA and API are served from the 
 
 ### Redirected to `https://` and nothing loads
 
-`SECURE_SSL_REDIRECT` got turned on without TLS in front. `docker-compose.yml` sets it to `False` deliberately; if you overrode it, revert until the SSL sprint.
+Either `SECURE_SSL_REDIRECT` got turned on with no TLS in front — `docker-compose.yml` sets it to `False` deliberately — or TLS *is* in front but `USE_X_FORWARDED_PROTO` is not set, so Django never sees the request as secure and redirects to HTTPS forever. With the `docker-compose.https.yml` overlay both are handled; if you enabled the flags by hand, set `USE_X_FORWARDED_PROTO=True` too. See `docs/DOMAIN_HTTPS_PLAN.md` §6.
 
 ### Database connection errors
 
