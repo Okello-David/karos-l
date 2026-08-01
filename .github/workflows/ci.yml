@@ -1,0 +1,187 @@
+# KarosL CI — runs the test suites and builds the deployment images.
+#
+# This workflow only ever READS the repository. It has no deploy step, no
+# registry push, and no AWS credentials: the repo is public, so anything a
+# workflow can reach is effectively public too. Deployment stays manual and
+# deliberate (docs/AWS_EC2_DEPLOYMENT.md).
+#
+# Baselines this protects, previously only ever verified by hand and written
+# into docs/PROJECT_STATE.md: backend 237/237, frontend 45/45, clean build.
+
+name: CI
+
+on:
+  push:
+    branches: [dev, cloud-deployment]
+  pull_request:
+
+# Read-only. The workflow never writes to the repo, comments on PRs, or
+# publishes packages, so it should not be able to.
+permissions:
+  contents: read
+
+# A second push to the same branch makes the first run irrelevant -- cancel it
+# rather than paying for both and reading a stale result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests (${{ matrix.name }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Run both database legs to completion. If SQLite fails, we still want to
+      # know whether PostgreSQL failed the same way -- that difference is
+      # usually the diagnosis.
+      fail-fast: false
+      matrix:
+        include:
+          # SQLite is the day-to-day dev database and the documented native
+          # baseline.
+          - name: sqlite
+            db_engine: django.db.backends.sqlite3
+            db_name: ''
+            db_user: ''
+            db_password: ''
+            db_host: ''
+            db_port: ''
+          # PostgreSQL is what actually runs in Docker and on AWS staging. This
+          # codebase has already had bugs that only exist at the database
+          # level -- the occupancy end-date CHECK constraint (BUG-007,
+          # BUG-010) -- so testing SQLite alone would not have caught them.
+          - name: postgres
+            db_engine: django.db.backends.postgresql
+            db_name: karosl_ci
+            db_user: karosl_user
+            db_password: ci-throwaway-not-a-secret
+            db_host: 127.0.0.1
+            db_port: '5432'
+
+    services:
+      # Starts for both matrix legs; the SQLite leg simply ignores it. That
+      # costs a few seconds and avoids duplicating this whole job definition.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: karosl_ci
+          POSTGRES_USER: karosl_user
+          # Throwaway credential for an ephemeral container that is never
+          # reachable from outside this runner. Not a secret, and deliberately
+          # not stored as one -- a GitHub Secret here would imply it mattered.
+          POSTGRES_PASSWORD: ci-throwaway-not-a-secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          # Matches backend/Dockerfile (python:3.12-slim), so CI and the
+          # deployed image agree on the interpreter.
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Run tests
+        working-directory: backend
+        env:
+          DB_ENGINE: ${{ matrix.db_engine }}
+          DB_NAME: ${{ matrix.db_name }}
+          DB_USER: ${{ matrix.db_user }}
+          DB_PASSWORD: ${{ matrix.db_password }}
+          DB_HOST: ${{ matrix.db_host }}
+          DB_PORT: ${{ matrix.db_port }}
+        # settings.py falls back to sensible defaults for everything else
+        # (SECRET_KEY, DEBUG, ALLOWED_HOSTS), so no .env is needed here.
+        run: python manage.py test --verbosity 2
+
+  frontend:
+    name: Frontend lint, test, build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          # Matches frontend/Dockerfile (node:20-alpine).
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # `ci`, not `install`: package-lock.json is committed, and CI should
+      # install exactly what it pins rather than silently resolving newer
+      # versions than anyone has tested.
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # oxlint currently reports 8 pre-existing unused-import/variable
+      # warnings and exits 0, so this gates real errors without requiring a
+      # cleanup pass first.
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Test
+        working-directory: frontend
+        run: npm test
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  docker:
+    name: Docker images build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Compose delegates image building to buildx and rejects versions older
+      # than 0.17.0 -- the exact incompatibility that broke the first EC2
+      # deployment, where Amazon Linux 2023 shipped buildx 0.12.1.
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # docker-compose.yml declares `env_file: .env` and uses the `:?` operator
+      # on POSTGRES_PASSWORD, so Compose refuses to even parse the file without
+      # one -- including for a build-only invocation. These are placeholder
+      # values from the committed example; nothing is started, only built.
+      - name: Create a throwaway .env so Compose can interpolate
+        run: cp .env.example .env
+
+      - name: Validate the Compose file
+        run: docker compose config --quiet
+
+      # Builds both images from a clean checkout. This is the job that catches
+      # the class of bug where something works locally only because it was
+      # hand-installed into a developer's environment -- exactly how the
+      # missing `openpyxl` dependency was found when this app was first
+      # containerized.
+      - name: Build images
+        uses: docker/bake-action@v7
+        with:
+          files: docker-compose.yml
+          targets: |
+            backend
+            frontend
+          # Build only. Nothing is pushed anywhere.
+          push: false
+          load: false
+          set: |
+            *.cache-from=type=gha
+            *.cache-to=type=gha,mode=max

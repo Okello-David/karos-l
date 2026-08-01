@@ -129,7 +129,7 @@ Reviewed what KarosL persists to disk today, ahead of introducing S3:
 
 ## 8. Known Limitations
 
-- No CI/CD pipeline yet — images are built and run locally only.
+- **CI exists** (`.github/workflows/ci.yml`) but stops at verification: it runs the backend suite against SQLite *and* PostgreSQL, the frontend lint/test/build, and a build of both images. It does **not** push images to a registry and does **not** deploy — the repo is public, so no deployment credentials live in it. Deployment stays the manual, deliberate path in `docs/AWS_EC2_DEPLOYMENT.md`.
 - No S3 integration **inside the application** yet (see section 6) — `BackupService`'s JSON exports are still local-disk-only and will not survive a redeploy on most cloud container platforms. Database backups themselves are covered: `scripts/backup-to-s3.sh` ships nightly `pg_dump`s to S3 from the host (§12), which is the more complete of the two since it also captures users, tokens, and the audit log.
 - Single backend replica assumed. Running multiple `backend` replicas would race on the migrate-on-start entrypoint step; harmless with Postgres (Django wraps migrations transactionally and a second replica's migrate is a no-op) but worth moving to a dedicated one-shot migration step (e.g. an init container or deploy-time job) before scaling out.
 - No HTTPS/TLS termination in this **local** compose setup — deliberately. On AWS staging, TLS is terminated by the same frontend nginx via bind-mounted Let's Encrypt certificates and the `docker-compose.https.yml` overlay, so no image differs between local and staging (`docs/DOMAIN_HTTPS_PLAN.md`).
@@ -154,7 +154,7 @@ Beyond staging:
 3. Replace the local Postgres container with Amazon RDS (PostgreSQL) — no application code changes needed, only `DB_HOST`/`DB_PORT`/credentials via env vars, exactly as designed here.
 4. Run the migrate-on-start entrypoint step as a one-shot ECS task (or equivalent) instead of every replica's container start, ahead of scaling `backend` beyond one instance.
 5. ~~Terminate TLS~~ — **done for staging (2026-07-31)** at the frontend nginx with Let's Encrypt, not at a load balancer, which keeps the no-ALB cost guardrail intact. An ALB with ACM only becomes relevant at Phase 6, if multi-instance scaling ever does. See `docs/DOMAIN_HTTPS_PLAN.md`.
-6. Add a CI pipeline (build images, run `python manage.py test` and `npm test`/`npm run build`, push to ECR on merge to `main`).
+6. ~~Add a CI pipeline~~ — **done 2026-08-01** (`.github/workflows/ci.yml`): three parallel jobs running the backend suite on a SQLite/PostgreSQL matrix, the frontend lint/test/build, and a `buildx bake` of both images from a clean checkout. Triggers on pushes to `dev`/`cloud-deployment` and on every pull request. **Still open:** pushing images to ECR on merge, which is the part that needs AWS credentials in the repo and is therefore a separate, deliberate decision.
 7. Wire container logs to CloudWatch (or equivalent) instead of the local `backend_logs` volume.
 
 ## 10. Logging & Troubleshooting
