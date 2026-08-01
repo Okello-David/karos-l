@@ -1,5 +1,53 @@
 # Project State
 
+## Staging stopped, with one-command recovery (2026-08-01)
+
+**Staging is STOPPED** (compute billing off) after the demo-readiness work, and restarting it is now a
+single command instead of four manual steps across two machines.
+
+```bash
+./scripts/recover-staging.sh     # stopped -> running -> verified working
+./scripts/verify-staging.sh      # "is staging actually up?" — read-only, any time
+```
+
+Both run from the **workstation**. `recover-staging.sh` starts the instance (retrying AWS capacity errors),
+repairs the `.env` origins, issues a certificate for the new hostname only if one is missing, recreates the
+containers, deletes orphaned certificates, and verifies from outside. **Proven end to end**, not just
+written: the instance was stopped, `verify-staging.sh` correctly reported it down, `recover-staging.sh`
+brought it back unattended to **12/12 checks passing**, and a second run correctly skipped certificate
+issuance and found no orphans.
+
+**The failure this addresses is deceptive, which is why it kept costing time.** After a restart the
+containers come back automatically with the **old hostname still in their stored environment**
+(`STAGING_DOMAIN` on the frontend, `ALLOWED_HOSTS` on the backend). Their healthchecks hit `localhost`, so
+all three report **healthy**, and nginx serves the SPA with a **200** — while presenting a certificate for a
+hostname that no longer resolves there and Django returns **400 to every API call**. `docker compose ps`
+cannot see this. Only an external check over the real hostname can.
+
+**Ordering trap now encoded in the script:** the old certificate must outlive the old containers. nginx
+refuses to start when `ssl_certificate` points at a missing file, so deleting the orphan *before*
+recreating the containers would leave the frontend unable to boot.
+
+### Known-good baseline — what a healthy staging looks like
+
+Confirmed **unchanged across a full stop → start → recover cycle**, so this is what recovery should restore:
+
+| | |
+|---|---|
+| Data | 2 properties, 3 sections, 11 units, 16 occupants, 14 active occupancies, 13 payments, 13 receipts |
+| Migrations | 40 applied, none pending |
+| Users | `karosadmin` only |
+| Containers | 3/3 `Up (healthy)` |
+| Certificates | exactly **1** (orphans are a bug, not a leftover) |
+| Timers | `karosl-backup.timer` and `certbot-renew.timer` both active after boot |
+| External checks | 12/12 in `verify-staging.sh` |
+
+A final `pg_dump` was pushed to S3 before stopping, so this dataset survives the instance entirely.
+
+**Standing cost, unchanged:** the address moved twice more during this work (`16.171.114.188` →
+`16.171.227.174` → `13.61.179.252`). Recovery is now cheap, but it is a *treatment*. Only an Elastic IP or a
+purchased domain removes the cause.
+
 ## Demo readiness: Reports built, demo data seeded (2026-08-01)
 
 **Reports is no longer a placeholder.** The three cards that had said "Coming Soon" since the feature was

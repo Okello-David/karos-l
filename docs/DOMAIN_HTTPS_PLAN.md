@@ -316,18 +316,48 @@ HTTPS on top of a broken app would have made the cause impossible to isolate.
 
 ---
 
-## 9. Runbook: the public IP changed
+## 9. Runbook: restarting staging (the public IP changed)
 
-**This happens on every stop/start**, and is the standing cost of running without an Elastic IP. It is what broke
-staging on 2026-07-31.
+**This happens on every stop/start**, and is the standing cost of running without an Elastic IP. It has now
+broken staging **three times** (2026-07-31, 2026-08-01 twice).
 
-Symptom: the SPA still loads (nginx serves static files regardless), but every API call returns
-`Bad Request (400)`. It fails quietly from the outside — always check `/api/health/`, not just the home page.
+### Just run this
 
-**Steps 1–2 are now scripted.** `scripts/fix-staging-origins.sh` reads the current public IP from IMDSv2,
-derives the new sslip.io hostname, backs up `.env`, rewrites `ALLOWED_HOSTS` / `CSRF_TRUSTED_ORIGINS` /
-`CORS_ALLOWED_ORIGINS` / `STAGING_DOMAIN`, and then **prints** the certbot and compose commands rather than
-running them — certificate issuance stays deliberate because of the shared-domain rate limit below.
+```bash
+# From your WORKSTATION, not the instance.
+./scripts/recover-staging.sh              # start -> repair -> certificate -> verify
+./scripts/recover-staging.sh --fix-ssh    # ...and update the SSH rule if your own IP moved
+./scripts/recover-staging.sh --dry-run    # show what it would do, change nothing
+
+./scripts/verify-staging.sh               # "is staging actually up?" — any time, read-only
+```
+
+`recover-staging.sh` starts the instance (retrying AWS capacity errors), repairs the `.env` origins, issues
+a certificate for the new hostname **only if one does not already exist**, recreates the containers so the
+new hostname is baked in, deletes orphaned certificates, and then verifies the result from outside. It is
+idempotent: re-running it against a healthy instance changes nothing and costs no Let's Encrypt quota.
+
+### Two traps this encodes, both of which have cost real time
+
+**1. It fails while looking perfectly healthy.** After a restart the containers come back automatically
+(`restart: unless-stopped`) with the **old hostname still baked into their stored environment** —
+`STAGING_DOMAIN` in the frontend, `ALLOWED_HOSTS` in the backend. Their healthchecks hit `localhost`, which
+never changes, so all three report **healthy**; nginx serves the SPA and returns **200**. Meanwhile the
+certificate is for a hostname that no longer resolves here and Django returns **400 to every API call**.
+`docker compose ps` structurally cannot detect this. Always check `/api/health/` over the real hostname —
+which is exactly what `verify-staging.sh` does.
+
+**2. Never delete the old certificate before recreating the containers.** nginx refuses to start when
+`ssl_certificate` points at a file that does not exist. While the old containers are running they still
+reference the old certificate path, so deleting it first leaves the frontend unable to boot. Recreate
+first, delete second — the order in the script is deliberate.
+
+### The parts, if you need them individually
+
+`scripts/fix-staging-origins.sh` (run **on the instance**) does the `.env` half alone: reads the current
+public IP from IMDSv2, derives the new sslip.io hostname, backs up `.env`, and rewrites `ALLOWED_HOSTS` /
+`CSRF_TRUSTED_ORIGINS` / `CORS_ALLOWED_ORIGINS` / `STAGING_DOMAIN`. It **prints** the certbot and compose
+commands rather than running them, so it is safe to run on its own.
 
 ```bash
 cd ~/apps/karosl
@@ -335,7 +365,7 @@ cd ~/apps/karosl
 ./scripts/fix-staging-origins.sh             # rewrite .env, print the rest
 ```
 
-The manual equivalent, step by step:
+The fully manual equivalent, step by step:
 
 ```bash
 # 1. Get the new IP
@@ -441,7 +471,8 @@ superuser all deleted. Only `karosadmin` remains.
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| Hostname changes on every stop/start; certificate stops matching | **Medium** (operational) | Runbook §9, now scripted as `scripts/fix-staging-origins.sh` for the `.env` half. Resolved permanently only by an Elastic IP or a purchased domain. |
+| Hostname changes on every stop/start; certificate stops matching | **Low** (operational) | One command: `scripts/recover-staging.sh` (§9). Still a *treatment*, not a cure — only an Elastic IP or a purchased domain removes the cause. |
+| A restart looks healthy while the API is down | **Medium** (detection) | Containers restart with the old hostname in their stored env, and localhost healthchecks keep passing. `scripts/verify-staging.sh` checks from outside, which is the only place the failure is visible. |
 | Let's Encrypt rate limit against shared `sslip.io` | Medium | Dry-run before every issuance; avoid needless instance cycling. `fix-staging-origins.sh` deliberately does not issue certificates for this reason. |
 | ~~No automated backups~~ | **Resolved 2026-08-01** | `scripts/backup-to-s3.sh` + a systemd timer ship a verified nightly `pg_dump` to a private, lifecycle-managed S3 bucket via an EC2 instance role. See `docs/DEVOPS.md` §12. |
 | Single point of failure — one instance, one container DB | Medium | Accepted for staging. |

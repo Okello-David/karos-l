@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added — One-command staging recovery (2026-08-01)
+- **`scripts/recover-staging.sh`** takes staging from *stopped* to *verified working* in one command, run from the workstation: start the instance (retrying AWS capacity errors) → repair the `.env` origins → issue a certificate for the new hostname → recreate the containers → delete orphaned certificates → verify from outside. **Idempotent** — re-running it against a healthy instance changes nothing and costs no Let's Encrypt quota.
+- **`scripts/verify-staging.sh`** answers "is staging actually up?" honestly, from outside, exiting non-zero when it is not. Encodes the `DOMAIN_HTTPS_PLAN.md` §11 checklist — redirect, certificate identity/chain/expiry, `/api/health/`, SPA, deep link, 401 on a protected route, HSTS, and 8000/5432/5173 closed — so it stops being a list someone re-types from memory.
+- **Why this was needed:** the instance has no Elastic IP, so its address changes on every start, and that had broken staging three times. The recovery was four manual steps across two machines.
+
+### Discovered — a restart fails while reporting itself healthy (2026-08-01)
+- Verified directly on the running instance: the containers store the current hostname in their environment (`STAGING_DOMAIN=...` on the frontend, `ALLOWED_HOSTS=...` on the backend) and all three run `restart: unless-stopped`. **On the next boot they come back with those stale values.**
+- The result is a genuinely deceptive failure: all three containers report **healthy** — their healthchecks hit `localhost`, which never changes — and nginx serves the SPA with a **200**. Meanwhile it is presenting a certificate for a hostname that no longer resolves there, and Django returns **400 to every API call**. `docker compose ps` structurally cannot detect this, which is why `verify-staging.sh` checks from outside instead.
+- **Ordering trap, now encoded in the script:** the old certificate must outlive the old containers. nginx refuses to start when `ssl_certificate` points at a missing file, so deleting the orphaned certificate *before* recreating the containers would leave the frontend unable to boot. Recreate first, delete second.
+- **Also handled:** `StartInstances` can fail with `InsufficientInstanceCapacity` (it took 11 attempts on 2026-08-01), so the script retries rather than giving up; and if the workstation's own IP has moved, the security group blocks SSH — detected and reported, but only fixed with an explicit `--fix-ssh`, so a routine recovery never silently widens a firewall.
+
 ### Added — Reports built for real (2026-08-01)
 - **The Reports page is no longer a placeholder.** Its three cards had shown disabled "Coming Soon" buttons since the feature was deferred from v1.0 on 2026-07-04. All three now produce real reports, viewable in the page and downloadable as CSV or XLSX. This closes the longest-standing entry in `docs/PROJECT_STATE.md`'s Known Gaps.
 - **New `backend/apps/reports/`** — three read-only endpoints, **no new models and no new business rules**: `/api/reports/occupancy/` (capacity, occupied, available and occupancy rate per property), `/api/reports/financial/` (collections, outstanding, per-property split, payment-method breakdown, optional date range), and `/api/reports/occupants/` (every active occupant with assignment, contact details and balance).

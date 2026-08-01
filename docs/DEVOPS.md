@@ -161,6 +161,17 @@ Beyond staging:
 
 The same commands work identically on a laptop and on an EC2 staging host — that portability is the main practical payoff of the Compose-everywhere approach.
 
+### Staging is stopped, or broken after a restart — start here
+
+```bash
+./scripts/verify-staging.sh        # is it actually up? read-only, safe any time
+./scripts/recover-staging.sh       # stopped -> running -> verified, one command
+```
+
+Run both from your **workstation**, not the instance. Full detail in `docs/DOMAIN_HTTPS_PLAN.md` §9.
+
+**Do not trust `docker compose ps` here.** After a restart the containers come back with the *old* hostname baked into their stored environment, and their healthchecks hit `localhost`, so all three report `healthy` while Django returns 400 to every API call and nginx serves a certificate for a hostname that no longer resolves. The failure is only visible from outside, over the real hostname.
+
 ### Diagnostic commands
 
 ```bash
