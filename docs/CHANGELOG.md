@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Added — GitHub Actions CI (2026-08-01)
+- **The test suites now run automatically.** New `.github/workflows/ci.yml`, triggered on pushes to `dev`/`cloud-deployment` and on every pull request. There was previously no `.github/` directory at all, so the 237-backend / 45-frontend baselines quoted throughout the docs were hand-run and hand-recorded — a regression was only ever caught if someone remembered to look.
+- **Three parallel jobs, ~2m20s wall time.** Backend tests on a **SQLite *and* PostgreSQL matrix** (237/237 on both), frontend lint + test + build (45/45, build clean), and a `buildx bake` of both Docker images.
+- **Why the PostgreSQL leg exists:** SQLite is the dev database, but PostgreSQL is what Docker and AWS staging run, and this codebase has already had bugs that live only at the database level (BUG-007, BUG-010 on the occupancy end-date CHECK constraint). Confirmed the legs are genuinely distinct rather than both silently SQLite — the logs show `test_karosl_ci` created on PostgreSQL against `file:memorydb_default?mode=memory&cache=shared` on SQLite. `fail-fast: false`, because when one leg fails, whether the other failed identically is usually the diagnosis.
+- **Why the Docker job exists:** it builds both images from a clean checkout, which is the check that catches the class of bug where something only works locally because it was hand-installed into a developer's environment — exactly how the missing `openpyxl` dependency was found when this app was first containerized. It also sets up buildx explicitly, since Compose rejects buildx older than 0.17.0 (the incompatibility that broke the first EC2 deployment).
+- **Two Compose traps handled:** `docker-compose.yml` declares `env_file: .env` and uses the `:?` operator on `POSTGRES_PASSWORD`, so Compose refuses to parse the file without a `.env` **even for a build-only invocation**. The job writes a throwaway one from the committed `.env.example` first, then runs `docker compose config --quiet` to validate the file before building.
+- **Lint is gated but not made strict.** `oxlint` reports 8 pre-existing unused-import/variable warnings and exits 0, so CI catches real errors without a cleanup pass being a prerequisite for CI existing at all.
+- **Deliberately absent:** no deploy step, no registry push, **no AWS credentials**. The repo is public, so anything a workflow can reach is effectively public; deployment stays the manual path in `docs/AWS_EC2_DEPLOYMENT.md`. Branch protection is a repo setting rather than a file and is left as a deliberate decision.
+
+### Verified — CI was proven to fail, not just to pass (2026-08-01)
+- A green CI that has never been shown to detect anything is not evidence of anything. A throwaway branch broke one backend assertion (`HTTP_401_UNAUTHORIZED` → `HTTP_418_IM_A_TEAPOT`) and one frontend assertion, and opened a pull request against `cloud-deployment`.
+- **Both backend legs and the frontend job went red**, traced in the logs to precisely those two breaks — and the **Docker job correctly stayed green**, because the images genuinely still build. That the jobs disagreed is the point: they are independent and not falsely coupled.
+- This also exercised the **`pull_request` trigger**, which the push trigger alone would never have tested. The PR was closed and both the local and remote branches deleted; the two test files are byte-identical to before.
+- Noted while setting this up: the repository's default branch is **`dev`**, not `main` or `master`.
+
 ### Added — Automated PostgreSQL backups to S3 (2026-08-01)
 - **Nightly `pg_dump` now ships to S3 automatically.** New `scripts/backup-to-s3.sh` (dump → verify → gzip → upload → prune local copies) and `deploy/systemd/karosl-backup.{service,timer}`, firing at 02:30 UTC. This closes the item both `docs/RELEASE_PLAN.md` and `docs/DOMAIN_HTTPS_PLAN.md` §12 rated the top remaining risk — HTTPS had made staging usable with real data while its only backup was a manual command and its only copy sat on the same EBS volume as the compute.
 - **Bucket:** private (all four public-access blocks on), versioned, SSE-S3 encrypted, `eu-north-1`, with a lifecycle rule expiring objects at 30 days plus noncurrent-version and delete-marker purges — without which a nightly dump bills forever.

@@ -1,5 +1,41 @@
 # Project State
 
+## Continuous integration (2026-08-01)
+
+**KarosL's test suites now run automatically.** `.github/workflows/ci.yml` runs on pushes to `dev` and
+`cloud-deployment` and on every pull request. Until now there was no `.github/` directory at all: the
+237-backend / 45-frontend baselines quoted throughout this document were produced by someone running the
+suites by hand and typing the numbers in. They are now machine-enforced.
+
+**Three parallel jobs, ~2m20s total wall time** (first run, before layer caching):
+
+| Job | Result | Time |
+|---|---|---|
+| Backend tests (sqlite) | **237/237** | 2m09s |
+| Backend tests (postgres) | **237/237** | 2m06s |
+| Frontend lint, test, build | **45/45**, build clean | 32s |
+| Docker images build | both images built | 55s |
+
+**The backend runs a SQLite/PostgreSQL matrix**, not SQLite alone. PostgreSQL is what Docker and AWS
+staging actually run, and this codebase has already had bugs that exist only at the database level
+(BUG-007 and BUG-010, on the occupancy end-date CHECK constraint). Verified that the two legs are genuinely
+different rather than silently both SQLite: the logs show `test_karosl_ci` created on PostgreSQL versus
+`file:memorydb_default?mode=memory&cache=shared` on SQLite.
+
+**CI was verified by making it fail, not only by making it pass.** A throwaway branch broke one backend
+assertion and one frontend assertion and opened a pull request. Both backend legs and the frontend job went
+**red**, traced in the logs to exactly those two breaks — and the Docker job correctly stayed **green**,
+because the images still build. That also confirmed the `pull_request` trigger works, which the push
+trigger alone would not have exercised. The branch and PR were deleted afterwards.
+
+**Deliberately not included:** no deploy step, no registry push, and **no AWS credentials in the repo** —
+it is public, so anything a workflow can reach is effectively public. Deployment stays the manual path in
+`docs/AWS_EC2_DEPLOYMENT.md`. Branch protection (requiring CI to pass before merge) is a GitHub repo
+setting, not a file, and is left for a deliberate decision.
+
+**Note for the next person:** the repo's default branch is **`dev`**, not `main` or `master` — worth
+knowing before opening a PR.
+
 ## Automated backups to S3 (2026-08-01)
 
 **Staging database backups are now automated, verified, and off the instance.** This closes the gap that

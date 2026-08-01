@@ -1,5 +1,39 @@
 # Release Plan
 
+## Cloud Engineering Phase: Continuous Integration — 2026-08-01
+
+Executes the sprint recommended below ("CI is the best next step"). **No application code changed, no
+business features added, no UI changes, no AWS resources created, no secrets added to the repository.**
+
+**Result: the test baselines are now machine-enforced instead of hand-recorded.**
+
+- **`.github/workflows/ci.yml`** — three parallel jobs on pushes to `dev`/`cloud-deployment` and every PR:
+  backend tests on a **SQLite + PostgreSQL matrix** (237/237 on both), frontend lint/test/build (45/45),
+  and a build of both Docker images. **~2m20s** total wall time.
+- **Verified by making it fail.** A throwaway PR broke one backend and one frontend assertion; both backend
+  legs and the frontend job went red, the Docker job correctly stayed green, and the `pull_request` trigger
+  was exercised in the process. Branch and PR deleted afterwards.
+- **Verification only — no deploy.** The repo is public, so no AWS credentials were added. Pushing images
+  to ECR remains open and is a separate, deliberate decision.
+
+### Open follow-ups
+
+1. **Branch protection is not enabled.** CI reports status but nothing yet *requires* it to pass before a
+   merge. That is a GitHub repo setting rather than a file, so it needs to be turned on in the UI.
+2. **Eight pre-existing lint warnings** remain (unused imports/variables in `Reports.jsx`, `NotFound.jsx`,
+   `Administration.jsx`, `Toast.test.jsx`). `oxlint` exits 0 on them, so CI is green; clearing them would
+   let lint be made strict later.
+
+### Recommendation for the next sprint: **a purchased domain**
+
+With backups and CI done, the highest-value remaining item is a **real domain**. It retires an entire
+recurring failure mode at its root: staging has now broken twice on the same cause (the IP changes on
+stop/start, so origins go stale, the certificate stops matching, and the old certificate is orphaned and
+can never renew). A domain removes all three at once, and costs far less than RDS. **RDS still defers**
+until KarosL holds data it cannot afford to lose.
+
+---
+
 ## Cloud Engineering Phase: Automated Backups to S3 — 2026-08-01
 
 Executes the sprint recommended below as item 2 ("S3 for backups"), taken ahead of RDS exactly as that
