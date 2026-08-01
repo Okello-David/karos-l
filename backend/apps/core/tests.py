@@ -19,7 +19,7 @@ class DrfExceptionHandlerTests(TestCase):
 
     def test_unauthenticated_returns_json_detail(self):
         response = self.client.get("/api/occupants/")
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_418_IM_A_TEAPOT)  # CI SELF-TEST: deliberate break
         self.assertIn("detail", response.data)
         self.assertIn("status_code", response.data)
         self.assertEqual(response.data["status_code"], 401)

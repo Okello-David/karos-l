@@ -6,7 +6,7 @@ import Button from '../components/Button'
 describe('Button', () => {
   it('renders children', () => {
     render(<Button>Click Me</Button>)
-    expect(screen.getByText('Click Me')).toBeInTheDocument()
+    expect(screen.getByText('CI SELF-TEST deliberate break')).toBeInTheDocument()
   })
 
   it('calls onClick when clicked', async () => {
