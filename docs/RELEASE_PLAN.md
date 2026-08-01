@@ -1,5 +1,48 @@
 # Release Plan
 
+## Demo-readiness pass: Reports built, staging seeded — 2026-08-01
+
+The domain sprint was **deferred** (it needs a purchased domain, and the budget for that follows client
+sign-off), and the client's review is of the **app**, not the infrastructure. So this pass targeted what
+she will actually see. **No AWS resources created. No access-control changes.**
+
+**Result: the app no longer advertises an unfinished feature, and staging demos with realistic data.**
+
+- **Reports built for real** — three working reports (occupancy, financial, occupants), each exportable as
+  CSV or XLSX. Closes the oldest entry in `PROJECT_STATE.md`'s Known Gaps, open since 2026-07-04.
+- **Figures reuse existing calculations** rather than reimplementing them, so a report cannot disagree with
+  the dashboard or an occupant's own balance. Confirmed live: the occupancy report and the dashboard both
+  report 24 capacity / 14 occupied / 58%.
+- **`manage.py seed_demo_data`** — the repo's first management command. 2 properties, 11 units, 16
+  occupants, 13 payments, with **deliberately uneven occupancy** so the Explorer shows full (2/2), partial
+  (3/4) and vacant (0/2) units rather than one flat colour.
+- **The `KG1`/`SMK1` smoke-test residue is gone**, finally — flagged in three consecutive passes. Removed
+  via `seed_demo_data --reset`, after a verified backup to S3.
+- **Tests: backend 257/257, frontend 52/52**, green in CI on both SQLite and PostgreSQL.
+
+### Staging is live and demo-ready
+
+`https://16-171-227-174.sslip.io` — HTTP 301s to HTTPS, certificate valid to 2026-10-30 (`Verify return
+code: 0`), 3/3 containers healthy, `check --deploy` **0 issues**, no pending migrations, report routes 401
+unauthenticated, receipt PDFs generate. `karosadmin` remains the only account; the temporary account used
+for verification was deleted and its token confirmed rejected afterwards.
+
+### The IP moved for the third time
+
+Starting the instance changed the address again (`16.171.114.188` → `16.171.227.174`), requiring an origin
+repair, a new certificate, and deletion of the orphaned one. `scripts/fix-staging-origins.sh` made this
+routine, but **routine is not the same as solved**. Three occurrences in three sessions is the argument for
+the deferred domain sprint, which removes the cause rather than the symptom.
+
+### Recommendation for the next sprint
+
+**Whatever the client's feedback says.** That is the point of showing her the app, and pre-committing to a
+technical sprint before hearing it would waste the review. Failing that: the **purchased domain** once
+budget allows, then the "move occupant to another unit" workflow — a real gap a property manager hits in
+normal daily use, and the most likely thing to surface in a hands-on review.
+
+---
+
 ## Cloud Engineering Phase: Continuous Integration — 2026-08-01
 
 Executes the sprint recommended below ("CI is the best next step"). **No application code changed, no

@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Added — Reports built for real (2026-08-01)
+- **The Reports page is no longer a placeholder.** Its three cards had shown disabled "Coming Soon" buttons since the feature was deferred from v1.0 on 2026-07-04. All three now produce real reports, viewable in the page and downloadable as CSV or XLSX. This closes the longest-standing entry in `docs/PROJECT_STATE.md`'s Known Gaps.
+- **New `backend/apps/reports/`** — three read-only endpoints, **no new models and no new business rules**: `/api/reports/occupancy/` (capacity, occupied, available and occupancy rate per property), `/api/reports/financial/` (collections, outstanding, per-property split, payment-method breakdown, optional date range), and `/api/reports/occupants/` (every active occupant with assignment, contact details and balance).
+- **Figures are reused, not reimplemented.** Occupancy uses the same capacity maths as `DashboardSummaryView`; balances go through `PaymentService._calculate_occupancy_charge`. A report therefore *cannot* disagree with what an occupant's own profile or the dashboard shows — which is the entire point of reusing rather than rewriting the calculation.
+- **The financial date range filters payments only.** What someone owes today is not a function of which dates you happen to be looking at, so narrowing the window changes collections without pretending the debt moved with it. Covered by a test that asserts exactly that asymmetry.
+- **Payments from occupants with no active unit are attributed to "Unassigned" rather than dropped.** That is a real case, not an error (BUG-022), and dropping them would make the per-property totals silently disagree with the headline figure. A test asserts the rows reconcile with the summary.
+- **Guarded against the BUG-011 failure mode.** `ExportService` maps a header to a row key via a lossy `header.lower().replace(" ", "_")`; a mismatch produces a column that exists but is **always blank**, which is how three of the four original exports shipped. Headers are now declared beside their keys in `apps/reports/services`, and three tests check the transform itself, the keys the reports actually produce, and that no exported column is blank in every row.
+- **Frontend:** `Reports.jsx` rewritten from placeholder to three selectable reports with summary tiles, responsive tables, a date filter, and CSV/Excel export, reusing the existing `Skeleton`/`EmptyState`/`Button` patterns and `formatUGX`. Two warts on that page fixed in passing: an unused `Card` import (one of the 8 known lint warnings) and a `window.location.href` navigation that forced a full page reload inside the SPA.
+
+### Added — `manage.py seed_demo_data` (2026-08-01)
+- **The repo's first management command.** Creates a realistic hostel dataset — 2 properties, 3 sections, 11 units, 16 occupants, 13 payments with receipts — for showing the app to someone.
+- **Occupancy is deliberately uneven**: some units full, some partly filled, two left vacant. The Property Explorer's traffic-light visualisation is the strongest surface in the app and only demonstrates anything if the data exercises all three states.
+- **It goes through the service layer** (`AdminService`, `StudentService`, `OccupancyService`, `PaymentService`) rather than writing rows directly, so everything it creates obeys the real validation, pricing and receipt-generation rules. A demo dataset that could not have been produced through the UI would be worse than none.
+- **Safety:** refuses to run when business data already exists unless `--reset` is passed, and `--reset` deletes business data only — users, auth tokens and the audit log are never touched, since the audit trail is meant to be immutable and is also the record that the deletion happened.
+
+### Verified — 2026-08-01
+- **Backend 257/257** (237 + 20 new) and **frontend 52/52** (45 + 7 new), green in CI on **both SQLite and PostgreSQL**; `npm run build` clean; lint still exits 0 with one fewer warning.
+- Exercised against the seeded dataset rather than only against fixtures: all three reports return plausible figures, per-property collections reconcile with the headline total, the date filter narrows collections while leaving outstanding unchanged, an empty future range returns zeros rather than an error, an invalid date returns 400, CSV exports have no blank columns, and the XLSX download is a real Excel workbook.
+
 ### Added — GitHub Actions CI (2026-08-01)
 - **The test suites now run automatically.** New `.github/workflows/ci.yml`, triggered on pushes to `dev`/`cloud-deployment` and on every pull request. There was previously no `.github/` directory at all, so the 237-backend / 45-frontend baselines quoted throughout the docs were hand-run and hand-recorded — a regression was only ever caught if someone remembered to look.
 - **Three parallel jobs, ~2m20s wall time.** Backend tests on a **SQLite *and* PostgreSQL matrix** (237/237 on both), frontend lint + test + build (45/45, build clean), and a `buildx bake` of both Docker images.

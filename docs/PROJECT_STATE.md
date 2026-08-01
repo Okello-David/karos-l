@@ -1,5 +1,51 @@
 # Project State
 
+## Demo readiness: Reports built, demo data seeded (2026-08-01)
+
+**Reports is no longer a placeholder.** The three cards that had said "Coming Soon" since the feature was
+deferred from v1.0 on 2026-07-04 now produce real reports, each viewable in the page and downloadable as
+CSV or XLSX. This closes the longest-standing known gap in `docs/PROJECT_STATE.md`.
+
+**New `backend/apps/reports/`** — three read-only endpoints, **no new models and no new business rules**:
+
+| Endpoint | Shows |
+|---|---|
+| `/api/reports/occupancy/` | Capacity, occupied, available and occupancy rate per property, plus totals |
+| `/api/reports/financial/` | Collections, outstanding balances, per-property split, payment-method breakdown, optional date range |
+| `/api/reports/occupants/` | Every active occupant with unit assignment, contact details and balance |
+
+Occupancy reuses the capacity maths from `DashboardSummaryView`; balances go through
+`PaymentService._calculate_occupancy_charge`. **A report therefore cannot disagree with what an occupant's
+own profile shows** — which is the whole reason for reusing rather than reimplementing.
+
+**Two design decisions worth knowing:**
+
+- **The financial date range filters payments only.** What someone owes today is not a function of which
+  dates you are looking at, so narrowing the window changes collections without pretending the debt moved.
+- **Payments from occupants with no active unit are attributed to "Unassigned", not dropped.** That is a
+  real case (BUG-022), and dropping them would make the per-property totals silently disagree with the
+  headline figure. A test asserts they reconcile.
+
+**Guarded against the BUG-011 failure mode.** `ExportService` maps a header to a row key with a lossy
+`header.lower().replace(" ", "_")`; a mismatch yields a column that exists but is **always blank**, which is
+exactly how three of the four original exports shipped. Headers are now declared beside their keys, and
+three tests check the transform, the keys the reports actually produce, and that no exported column is
+blank in every row.
+
+**New `manage.py seed_demo_data`** — the repo's first management command. Creates a realistic hostel
+(2 properties, 3 sections, 11 units, 16 occupants, 13 payments) with **deliberately uneven occupancy**, so
+the Property Explorer's traffic-light visualisation exercises full, partial and vacant states rather than
+showing one flat colour. It goes through the **service layer** rather than writing rows directly, so
+everything obeys the real validation and receipt-generation rules — a demo dataset that could not have been
+produced through the UI would be worse than none. It refuses to run when business data exists unless
+`--reset` is passed, and `--reset` never touches users or the audit log.
+
+**Test baseline: backend 257/257** (237 + 20 new), **frontend 52/52** (45 + 7 new), build clean, lint
+still exit 0 with one fewer warning. Green in CI on **both SQLite and PostgreSQL**.
+
+Also fixed on the Reports page while it was being rewritten: an unused `Card` import (one of the known lint
+warnings) and a `window.location.href` navigation that forced a full page reload inside the SPA.
+
 ## Continuous integration (2026-08-01)
 
 **KarosL's test suites now run automatically.** `.github/workflows/ci.yml` runs on pushes to `dev` and
@@ -255,7 +301,7 @@ Full detail on what's local-only today vs. planned for S3 (backup JSON files onl
 
 ## Known gaps (not implemented, out of scope to add per "no new business features")
 
-- **Reports** page is a placeholder ("Coming Soon" on Occupancy/Financial/Student report cards). **Product decision (2026-07-04): deferred from v1.0, not release-blocking.** Reports require a genuine reporting-feature pass (data aggregation, filters, export formats) that is out of scope for stabilization; the placeholder with a link to the working Backup & Export CSV/XLSX export is considered an acceptable v1.0 substitute. Revisit as a post-launch feature pass, not before.
+- ~~**Reports** page is a placeholder~~ — **closed 2026-08-01.** Deferred from v1.0 on 2026-07-04 as a product decision, and built when a client review made the "Coming Soon" cards a liability rather than an honest expectation-setter. All three reports now work and export to CSV/XLSX; see the demo-readiness entry at the top of this document.
 - **Move occupant to another unit** is not implemented (no route, no service method). Present in `docs/WORKFLOWS.md`'s aspirational spec but never built.
 - Archived properties are excluded entirely from the Property Explorer / Properties list API (`PropertyExplorerView` filters `is_active=True`) rather than shown with an Archived badge — a pre-existing, previously-documented design gap.
 - No CI/CD pipeline, no S3/object storage integration, no TLS termination, and no cloud hosting yet — expected at this stage of the Cloud Engineering Phase, not regressions. Full detail and planned order of work in `docs/DEVOPS.md` §8–9.
