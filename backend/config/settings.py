@@ -96,6 +96,7 @@ INSTALLED_APPS = [
     'apps.occupancy',
     'apps.payments',
     'apps.dashboard',
+    'apps.reports',
     'apps.administration',
     'apps.audit',
     'apps.backup',
