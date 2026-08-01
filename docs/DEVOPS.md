@@ -130,7 +130,7 @@ Reviewed what KarosL persists to disk today, ahead of introducing S3:
 ## 8. Known Limitations
 
 - No CI/CD pipeline yet — images are built and run locally only.
-- No S3/object storage integration yet (see section 6) — backup files are local-disk-only, which will not survive a redeploy on most cloud container platforms.
+- No S3 integration **inside the application** yet (see section 6) — `BackupService`'s JSON exports are still local-disk-only and will not survive a redeploy on most cloud container platforms. Database backups themselves are covered: `scripts/backup-to-s3.sh` ships nightly `pg_dump`s to S3 from the host (§12), which is the more complete of the two since it also captures users, tokens, and the audit log.
 - Single backend replica assumed. Running multiple `backend` replicas would race on the migrate-on-start entrypoint step; harmless with Postgres (Django wraps migrations transactionally and a second replica's migrate is a no-op) but worth moving to a dedicated one-shot migration step (e.g. an init container or deploy-time job) before scaling out.
 - No HTTPS/TLS termination in this **local** compose setup — deliberately. On AWS staging, TLS is terminated by the same frontend nginx via bind-mounted Let's Encrypt certificates and the `docker-compose.https.yml` overlay, so no image differs between local and staging (`docs/DOMAIN_HTTPS_PLAN.md`).
 - The `backend`/`frontend` Docker images are not yet pushed to any registry — building is entirely local for this phase.
@@ -150,7 +150,7 @@ Reviewed what KarosL persists to disk today, ahead of introducing S3:
 Beyond staging:
 
 1. Push `backend`/`frontend` images to a registry (Amazon ECR).
-2. Move `backend/backups/*.json` to S3 (swap `BackupService.BACKUP_DIR` for an S3-backed storage backend — the read/write call sites are already isolated to `apps/backup/services.py`, so this is a contained change).
+2. ~~Get backups off the instance~~ — **done for staging (2026-08-01)**: `scripts/backup-to-s3.sh` plus a systemd timer ships a verified nightly `pg_dump` to a private, versioned, lifecycle-managed S3 bucket using an EC2 instance role (no AWS keys on the box). See §12. **Still open:** moving `BackupService`'s own `backend/backups/*.json` exports to S3 (swap `BackupService.BACKUP_DIR` for an S3-backed storage backend — the read/write call sites are already isolated to `apps/backup/services.py`, so this is a contained change).
 3. Replace the local Postgres container with Amazon RDS (PostgreSQL) — no application code changes needed, only `DB_HOST`/`DB_PORT`/credentials via env vars, exactly as designed here.
 4. Run the migrate-on-start entrypoint step as a one-shot ECS task (or equivalent) instead of every replica's container start, ahead of scaling `backend` beyond one instance.
 5. ~~Terminate TLS~~ — **done for staging (2026-07-31)** at the frontend nginx with Let's Encrypt, not at a load balancer, which keeps the no-ALB cost guardrail intact. An ALB with ACM only becomes relevant at Phase 6, if multi-instance scaling ever does. See `docs/DOMAIN_HTTPS_PLAN.md`.
@@ -281,6 +281,42 @@ Two independent mechanisms exist; they are not interchangeable:
 
 For host loss, `pg_dump` is the one that matters.
 
+### Automated: nightly dump to S3 (the normal path)
+
+`scripts/backup-to-s3.sh` is the automated form of the manual procedure below — same `pg_dump` command, plus verification, compression, and an upload to S3. It is what a systemd timer runs unattended; run it by hand before doing anything risky.
+
+```bash
+cd ~/apps/karosl
+./scripts/backup-to-s3.sh --dry-run    # dump and verify, upload nothing
+./scripts/backup-to-s3.sh              # dump, verify, upload, prune local copies
+```
+
+**Setup, once per instance:**
+
+```bash
+# 1. Tell the script which bucket to use (never committed — the .env is gitignored)
+echo "KAROSL_BACKUP_BUCKET=<bucket-name>" >> ~/apps/karosl/.env
+
+# 2. Install the timer
+sudo cp deploy/systemd/karosl-backup.* /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now karosl-backup.timer
+
+# 3. Confirm it is scheduled, then force one run to prove it works end to end
+systemctl list-timers karosl-backup.timer
+sudo systemctl start karosl-backup.service
+journalctl -u karosl-backup.service -n 30 --no-pager
+```
+
+Four properties of this setup are deliberate and worth knowing:
+
+- **No AWS keys on the box.** Access comes from the EC2 instance role `karosl-staging-backup-role`. Confirm with `aws sts get-caller-identity` (it should report the role, not a user) and by the absence of `~/.aws/credentials`.
+- **The role has no `s3:DeleteObject`.** A compromised instance can write backups and read them back, but cannot erase backup history. Expiry is the bucket's lifecycle rule's job (30 days), not the instance's.
+- **The script verifies the dump before uploading** — non-zero size, `CREATE TABLE` statements present, `COPY` data blocks present. A 0-byte dump that looks successful in `ls` is the classic silent backup failure, and an exit code alone does not catch it.
+- **`Persistent=true` on the timer.** The instance is stopped between sessions, so scheduled runs are missed by design; without this the timer would silently skip to the following night and a stopped instance would never be backed up at all.
+
+The manual procedure below remains correct and is what the script runs. Use it when you want to see each step, or when the script cannot run.
+
 ### Take a dump
 
 Credentials are read from the container's own environment, so they never appear in a command line or shell history:
@@ -313,7 +349,17 @@ scp -i ~/.ssh/karosl-staging-key.pem \
   ec2-user@<EC2_PUBLIC_IP>:'~/backups/karosl-staging-*.sql' ./
 ```
 
-Store it somewhere that is not the EC2 instance. (S3 with a lifecycle policy is Phase 4; until then, off-box local storage is still infinitely better than on-box.)
+Store it somewhere that is not the EC2 instance. `scripts/backup-to-s3.sh` now does this automatically; `scp` remains the manual fallback, and off-box local storage is still infinitely better than on-box.
+
+To pull a dump back down from S3 — on the instance (the role grants read on the backup prefix), or from a workstation with account access:
+
+```bash
+aws s3 ls s3://<bucket>/pg_dump/ --recursive --region eu-north-1
+aws s3 cp s3://<bucket>/pg_dump/<year>/<dump>.sql.gz . --region eu-north-1
+gunzip <dump>.sql.gz
+```
+
+Then restore it into a **disposable** database, exactly as below.
 
 ### Restore into a disposable database — never over the live one
 

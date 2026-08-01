@@ -1,5 +1,54 @@
 # Project State
 
+## Automated backups to S3 (2026-08-01)
+
+**Staging database backups are now automated, verified, and off the instance.** This closes the gap that
+both `docs/RELEASE_PLAN.md` and `docs/DOMAIN_HTTPS_PLAN.md` §12 independently rated the top remaining
+risk: HTTPS had made the app usable with real data while `pg_dump` was still a manual habit, and the only
+copy of that data lived on the same EBS volume as the compute.
+
+**What was built:** `scripts/backup-to-s3.sh` (dump → verify → gzip → upload → prune) plus
+`deploy/systemd/karosl-backup.{service,timer}`, running nightly at 02:30 UTC with `Persistent=true` so a
+run missed while the instance is stopped fires on the next boot rather than being skipped. One private,
+versioned, SSE-S3-encrypted bucket in `eu-north-1` with a 30-day lifecycle expiry and noncurrent-version
+purge. **No new inbound port, no RDS, no NAT, no load balancer, no Elastic IP.**
+
+**`pg_dump` was chosen over refactoring `BackupService`** because it is the only *complete* backup:
+KarosL's own `BackupService` covers 8 business models and deliberately excludes users, auth tokens,
+`AuditLog`, and `Backup` rows. The restore drill confirmed the dump carries all of them.
+
+**Security posture — verified by trying the operations, not by reading the policy:** access is an EC2
+instance role (`karosl-staging-backup-role`); `aws sts get-caller-identity` on the box returns the role
+ARN and `~/.aws/credentials` does not exist. The role can write and read the `pg_dump/` prefix but
+**`s3:DeleteObject` returns `AccessDenied`**, so a compromised instance cannot erase backup history, and
+`ListBucket` outside that prefix is denied too. Expiry is the bucket lifecycle's job, not the instance's.
+
+**Restore drill: 21/21 tables match.** A dump was pulled back *from S3* (not the local copy), restored
+into a disposable `karosl_restore_test` database, and every table's row count compared against live —
+identical, zero errors, live database untouched.
+
+**Staging was found broken again on arrival, exactly as predicted.** The instance had been stopped since
+2026-07-31, so its IP had moved `51.20.144.52` → `16.171.114.188`; the API returned `400` while the SPA
+returned `200`, hiding the outage. Repaired with the new `scripts/fix-staging-origins.sh`, which reads the
+current IP from IMDSv2, rewrites the four origin variables, and **prints rather than runs** the certbot
+commands (Let's Encrypt rate-limits against the shared `sslip.io` domain). New certificate issued for
+`16-171-114-188.sslip.io`, expiring 2026-10-30. **HTTPS verification re-passed:** HTTP 301s to HTTPS,
+`/api/health/` returns `{"status":"ok","database":"ok"}` over a trusted certificate (`Verify return code:
+0`), deep links load, protected routes 401, HSTS present, 3/3 containers healthy, `check --deploy` reports
+**0 issues**, no pending migrations, and 8000/5432/5173 confirmed still closed.
+
+**New finding — stale certificates accumulate.** Every IP change leaves the previous hostname's
+certificate behind, and it can never renew again because that address no longer routes to this instance.
+`certbot-renew.timer` will therefore start logging failures, and they will pile up one per restart. The
+stale `51-20-144-52.sslip.io` certificate was deleted this pass; one certificate now remains. Folding that
+cleanup into `fix-staging-origins.sh` is the obvious follow-up so it travels with the repair.
+
+**Not done this pass:** the leftover 2026-07-29 smoke-test data (`KG1`/`SMK1`, 5 students, 2 payments) is
+**still on staging** — the deletion was blocked by a tooling guard, not by any product problem. A ready-to-run
+script is staged on the instance at `~/purge-smoketest-data.py`; run it with
+`docker compose exec -T backend python manage.py shell < ~/purge-smoketest-data.py`. It deletes business
+data only and preserves the audit log. A verified backup was taken immediately beforehand.
+
 ## Domain + HTTPS on AWS staging (2026-07-31)
 
 **KarosL staging now serves HTTPS at a domain**, with a browser-trusted Let's Encrypt certificate, an HTTP→HTTPS

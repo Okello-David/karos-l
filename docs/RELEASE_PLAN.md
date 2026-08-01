@@ -1,5 +1,57 @@
 # Release Plan
 
+## Cloud Engineering Phase: Automated Backups to S3 — 2026-08-01
+
+Executes the sprint recommended below as item 2 ("S3 for backups"), taken ahead of RDS exactly as that
+recommendation ordered it. **No application code changed, no business features added, no UI changes.**
+New AWS resources: one S3 bucket, one IAM role + instance profile. **No RDS, no NAT Gateway, no load
+balancer, no Elastic IP, and no new inbound port.**
+
+**Result: the largest remaining durability gap is closed.** Backups are automated, verified, off-instance,
+and proven restorable.
+
+- **Nightly `pg_dump` → S3**, via `scripts/backup-to-s3.sh` and a systemd timer at 02:30 UTC. The script
+  verifies each dump before uploading (non-zero size, `CREATE TABLE` present, `COPY` blocks present) —
+  a 0-byte dump that looks successful in `ls` is the classic silent backup failure, and an exit code alone
+  does not catch it. It then confirms the object's size in S3 rather than trusting the upload's exit code.
+- **`Persistent=true` on the timer**, because this instance is stopped between sessions by design. Without
+  it a missed nightly run would silently skip to the following night, and a stopped instance would never
+  be backed up at all.
+- **Restore drill passed 21/21** — pulled from S3, restored into a disposable database, row counts
+  identical to live, live database never touched.
+- **Least privilege proven by attempting the operations:** the instance role can write and read the backup
+  prefix; `s3:DeleteObject` and out-of-prefix `ListBucket` both return `AccessDenied`. No AWS keys on the box.
+- **`pg_dump` over `BackupService`** — the app's own backup covers 8 business models and excludes users,
+  tokens, `AuditLog`, and `Backup` rows. Moving `BackupService`'s JSON exports to S3 remains open, but it
+  is now the smaller half of Phase 4.
+
+### Also done
+
+Staging was **found broken on arrival** (stopped since 2026-07-31 → new IP → `400` on every API call while
+the SPA still served `200`). Repaired with the new `scripts/fix-staging-origins.sh`; new certificate
+issued; the full HTTPS verification list re-passed with `check --deploy` at **0 issues**.
+
+### Open items from this sprint
+
+1. **Stale certificates orphan on every IP change** — the previous hostname's certificate can never renew
+   again, so `certbot-renew.timer` would accumulate one recurring failure per restart. The stale one was
+   deleted this pass; **folding that cleanup into `fix-staging-origins.sh` is the follow-up**, so it
+   travels with the repair instead of depending on someone remembering.
+2. **Leftover smoke-test data still on staging.** Blocked by a tooling guard, not a product problem. A
+   ready-to-run script is staged on the instance at `~/purge-smoketest-data.py` (business data only; the
+   audit log is preserved deliberately). A verified backup was taken immediately before the attempt.
+
+### Recommendation for the next sprint: **CI, then a real domain**
+
+Backups and TLS are done; the remaining infrastructure items are no longer urgent. **CI is the best next
+step** — GitHub Actions running `manage.py test` and `npm test`/`npm run build` costs nothing, creates no
+AWS resources, and protects the 237/45 baselines that today are only ever verified by hand. After that, a
+**purchased domain** is the highest-value AWS item: it retires the entire IP-change failure mode at its
+root — stale origins, stale certificates, and the shared-`sslip.io` rate limit all disappear at once, and
+it is far cheaper than RDS. **RDS still defers** until KarosL holds data it cannot afford to lose.
+
+---
+
 ## Cloud Engineering Phase: Post-Deployment Verification & Hardening — 2026-07-29
 
 Verification and documentation pass against the live AWS staging deployment. **No business features, no UI changes, no application code changed, no new AWS resources created.**

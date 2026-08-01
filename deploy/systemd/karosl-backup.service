@@ -1,0 +1,31 @@
+# KarosL — nightly PostgreSQL dump to S3.
+#
+# Install on the staging server (see docs/DEVOPS.md §12):
+#   sudo cp deploy/systemd/karosl-backup.* /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now karosl-backup.timer
+#
+# Adjust User/WorkingDirectory if the repo does not live at the default path.
+# The bucket name is NOT set here — scripts/backup-to-s3.sh reads
+# KAROSL_BACKUP_BUCKET from the server .env, which is never committed.
+
+[Unit]
+Description=KarosL staging PostgreSQL dump to S3
+Documentation=file:///home/ec2-user/apps/karosl/docs/DEVOPS.md
+# Docker must be up, or the dump has nothing to talk to.
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+User=ec2-user
+WorkingDirectory=/home/ec2-user/apps/karosl
+ExecStart=/home/ec2-user/apps/karosl/scripts/backup-to-s3.sh
+
+# The script's own checks are the real guard; this just stops a hung dump
+# from holding the timer open forever.
+TimeoutStartSec=900
+
+# Output goes to the journal: `journalctl -u karosl-backup.service`
+StandardOutput=journal
+StandardError=journal

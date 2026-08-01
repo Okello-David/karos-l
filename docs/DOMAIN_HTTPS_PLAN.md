@@ -324,6 +324,19 @@ staging on 2026-07-31.
 Symptom: the SPA still loads (nginx serves static files regardless), but every API call returns
 `Bad Request (400)`. It fails quietly from the outside — always check `/api/health/`, not just the home page.
 
+**Steps 1–2 are now scripted.** `scripts/fix-staging-origins.sh` reads the current public IP from IMDSv2,
+derives the new sslip.io hostname, backs up `.env`, rewrites `ALLOWED_HOSTS` / `CSRF_TRUSTED_ORIGINS` /
+`CORS_ALLOWED_ORIGINS` / `STAGING_DOMAIN`, and then **prints** the certbot and compose commands rather than
+running them — certificate issuance stays deliberate because of the shared-domain rate limit below.
+
+```bash
+cd ~/apps/karosl
+./scripts/fix-staging-origins.sh --dry-run   # show what would change
+./scripts/fix-staging-origins.sh             # rewrite .env, print the rest
+```
+
+The manual equivalent, step by step:
+
 ```bash
 # 1. Get the new IP
 aws ec2 describe-instances --instance-ids <INSTANCE_ID> --region eu-north-1 \
@@ -428,9 +441,9 @@ superuser all deleted. Only `karosadmin` remains.
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| Hostname changes on every stop/start; certificate stops matching | **High** (operational) | Runbook §9. Resolved permanently by an Elastic IP or a purchased domain. |
-| Let's Encrypt rate limit against shared `sslip.io` | Medium | Dry-run before every issuance; avoid needless instance cycling. |
-| No automated backups — `pg_dump` is still manual | **High** (data) | Next sprint. HTTPS makes the app usable with real data, which makes this the top remaining gap. |
+| Hostname changes on every stop/start; certificate stops matching | **Medium** (operational) | Runbook §9, now scripted as `scripts/fix-staging-origins.sh` for the `.env` half. Resolved permanently only by an Elastic IP or a purchased domain. |
+| Let's Encrypt rate limit against shared `sslip.io` | Medium | Dry-run before every issuance; avoid needless instance cycling. `fix-staging-origins.sh` deliberately does not issue certificates for this reason. |
+| ~~No automated backups~~ | **Resolved 2026-08-01** | `scripts/backup-to-s3.sh` + a systemd timer ship a verified nightly `pg_dump` to a private, lifecycle-managed S3 bucket via an EC2 instance role. See `docs/DEVOPS.md` §12. |
 | Single point of failure — one instance, one container DB | Medium | Accepted for staging. |
 | HSTS pinned on a recyclable hostname | Low | `max-age=300`. |
 | Certificate renewal depends on port 80 staying open | Low | Documented in §4; `certbot renew --dry-run` verifies it. |

@@ -1,0 +1,22 @@
+# KarosL — schedule for karosl-backup.service.
+#
+# Follows the same pattern as certbot-renew.timer, which is already the
+# established scheduling mechanism on this instance.
+
+[Unit]
+Description=Nightly KarosL PostgreSQL dump to S3
+
+[Timer]
+# 02:30 UTC daily. RandomizedDelaySec spreads load and avoids every timer
+# on the box firing on the same second.
+OnCalendar=*-*-* 02:30:00 UTC
+RandomizedDelaySec=15m
+
+# The instance is stopped between sessions, so scheduled runs WILL be missed.
+# Persistent=true makes the timer fire shortly after the next boot instead of
+# silently skipping until the following night — which matters a great deal
+# here, since a stopped instance would otherwise never be backed up at all.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

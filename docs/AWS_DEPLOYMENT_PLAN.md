@@ -116,6 +116,10 @@ Move the backup JSON exports (`BackupService.create_backup`, currently written t
 
 **Exit criteria:** new backups land in S3, a backup can be listed/downloaded/restored from S3, EBS-local backups migrated or retired.
 
+**Status: partially complete (2026-08-01).** The *database* half is done and is the half that matters for host loss: `scripts/backup-to-s3.sh` plus `deploy/systemd/karosl-backup.timer` ship a verified nightly `pg_dump` to bucket `karosl-staging-backups-*` in `eu-north-1` — private (all four public-access blocks on), versioned, SSE-S3 encrypted, with a 30-day lifecycle expiry and a noncurrent-version/delete-marker purge. Access is via the EC2 instance role `karosl-staging-backup-role`, scoped to `s3:PutObject`/`s3:GetObject` on the `pg_dump/` prefix and `s3:ListBucket` on that prefix only — **no `s3:DeleteObject`**, so a compromised instance cannot erase backup history, and **no AWS keys on the box**. `pg_dump` was chosen over refactoring `BackupService` because it is the only *complete* backup: it captures users, auth tokens, `AuditLog`, and `Backup` rows that `BackupService` deliberately excludes (`docs/DEVOPS.md` §12).
+
+**Still open:** moving `BackupService`'s own JSON exports (`backend/backups/*.json`) to S3 — a contained change isolated to `apps/backup/services.py`. Nothing else needs migrating: CSV/XLSX exports and receipt PDFs are streamed from memory and never touch disk, and there are no user file uploads.
+
 ### Phase 5 — Add CloudWatch logging / monitoring
 
 Ship container logs to **Amazon CloudWatch Logs** instead of (or in addition to) the local `backend_logs` volume (`docs/DEVOPS.md` §9 step 7). Add a few CloudWatch **alarms** on the essentials — EC2 CPU/status-check, RDS free storage / CPU / connections, and a billing/estimated-charges alarm layered on top of the Task 2 budget.
@@ -329,7 +333,7 @@ Because steps 1–4 are all data-copy and env-var changes — no code rewrite �
 - [ ] **CSRF / CORS configured** — `CSRF_TRUSTED_ORIGINS` and `CORS_ALLOWED_ORIGINS` set to the real origin(s); `CORS_ALLOW_ALL_ORIGINS=False`.
 - [x] **HTTPS configured** — done on staging 2026-07-31: TLS terminates at the frontend nginx with a Let's Encrypt certificate, and `docker-compose.https.yml` re-enables `SECURE_SSL_REDIRECT` / `CSRF_COOKIE_SECURE` / `SESSION_COOKIE_SECURE` (deliberately disabled for the TLS-less local compose env) **plus `USE_X_FORWARDED_PROTO`**, without which Django redirect-loops behind the proxy. Re-verify on production. `docs/DOMAIN_HTTPS_PLAN.md`.
 - [ ] **Real domain** — replace the sslip.io staging hostname with a purchased domain, so the address survives an IP change (`docs/DOMAIN_HTTPS_PLAN.md` §2).
-- [ ] **Backups verified** — automated backups running (RDS or backup service → S3) and a restore tested against the real backend.
+- [ ] **Backups verified** — automated backups running (RDS or backup service → S3) and a restore tested against the real backend. *Staging infrastructure is in place as of 2026-08-01 (bucket, lifecycle, instance role, script, timer — Phase 4 above), but the first live run and restore drill have not been executed: the instance has been stopped since 2026-07-31. Do not tick this until a real dump has landed in S3 and been restored into a disposable database.*
 - [ ] **Admin account secured** — strong, unique superuser password; demo/default accounts gone; admin not using a shared or dev credential.
 - [ ] **Logs reviewed** — CloudWatch (or container) logs checked for errors/tracebacks; log retention set (Task 2).
 - [ ] **Smoke tests pass** — the full workflow chain (Task 7 step 6) passes against production before announcing it.
