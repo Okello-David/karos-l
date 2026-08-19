@@ -51,6 +51,10 @@ DATABASES = {
         'CONN_MAX_AGE': 60,
         'OPTIONS': {
             'connect_timeout': 5,
+            # Unset by default so container Postgres (no TLS listener configured
+            # there) is unaffected. Set DB_SSLMODE=require when DB_HOST points at
+            # RDS — see docs/RDS_MIGRATION.md.
+            **({'sslmode': os.getenv('DB_SSLMODE')} if os.getenv('DB_SSLMODE') else {}),  # noqa: F405
         },
     }
 }
