@@ -1,0 +1,16 @@
+# KarosL — rotate the backup script's tee'd log file.
+#
+# Install: sudo cp deploy/logrotate.d/karosl-backup /etc/logrotate.d/karosl-backup
+#
+# This file is tiny (a handful of lines per nightly run — the same output
+# `journalctl -u karosl-backup.service` already shows), so rotation here is
+# about tidiness on the 10 GB root volume, not urgency.
+/home/ec2-user/logs/karosl-backup.log {
+    weekly
+    rotate 4
+    missingok
+    notifempty
+    compress
+    delaycompress
+    su ec2-user ec2-user
+}

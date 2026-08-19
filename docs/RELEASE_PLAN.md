@@ -1,5 +1,30 @@
 # Release Plan
 
+## Basic CloudWatch observability — 2026-08-19
+
+The one genuinely from-scratch build today — every other pass this session audited and extended work that
+already existed; CloudWatch monitoring did not. 3 log groups, a newly-installed CloudWatch Agent (file
+tailing — the dnf-installable version predates journald support, confirmed rather than assumed), Docker's
+`awslogs` driver for nginx, 2 metric filters turning the backup script's `[EVENT]` markers from earlier
+today into real metrics, 4 alarms, 1 SNS topic, 1 dashboard. **No RDS/ALB/NAT/Fargate, no new EC2 role
+(extended the existing one), no long-lived credentials.**
+
+Two real bugs caught and fixed during setup, not left for later: a `tee`-wrapper pipeline that would have
+silently swallowed backup failure exit codes (fixed with `set -o pipefail`, verified `systemctl is-failed`
+still works), and a disk-usage alarm that sat in a false `ALARM` because the CloudWatch Agent auto-tags its
+disk/mem metrics with dimensions the first alarm definition didn't account for (fixed, verified against real
+data). Every log-delivery and metric path was exercised for real — a genuine 401, a genuine successful
+backup, and a genuine forced failure — not just configured and assumed working.
+
+### Recommendation for the next sprint
+
+The purchased domain is still the standing recommendation. New from this pass: **confirm the SNS email
+subscription** (a one-click action, not engineering work) — until then, alarms fire but nothing arrives.
+Also worth a look once there's been a full day of real traffic: whether the alarm thresholds (80% CPU,
+85% disk) are actually the right levels for this workload, now that there's real data to check them against.
+
+---
+
 ## S3 backup: explicit encryption check + monitoring-event structure — 2026-08-19
 
 Small delta on top of the S3 backup work below, against a fuller brief covering the same ground. **No new

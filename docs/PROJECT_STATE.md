@@ -1,5 +1,33 @@
 # Project State
 
+## Basic CloudWatch observability (2026-08-19)
+
+Same day's fifth pass. CloudWatch monitoring genuinely didn't exist before this — confirmed directly
+(`describe-log-groups`/`describe-alarms`/`list-topics`/`list-dashboards` all empty beforehand), unlike the
+last three tasks today which were mostly audits of things already built.
+
+- **3 log groups** (`/karosl/staging/{django,nginx,backup}`, 14-day retention): Django's WARNING+ file log
+  and the backup script's `[EVENT]` output ship via a newly-installed CloudWatch Agent (file tailing —
+  confirmed the dnf-installable agent version, 1.300067.1, predates native journald support, so file tailing
+  was the right call, not journald); nginx ships via Docker's built-in `awslogs` logging driver.
+- **A real correctness bug caught and fixed before it shipped**: wrapping the backup service's `ExecStart`
+  in `tee` to get a stable file path would have silently broken failure detection — a bare
+  `cmd | tee -a file` pipeline reports `tee`'s exit status (always 0), not the backup script's. Fixed with
+  `set -o pipefail`; verified `systemctl is-failed` still correctly reports `failed` on a forced test failure.
+- **Backup monitoring wired up for real** (the "future work" `docs/S3_BACKUP_ARCHITECTURE.md` §11 described
+  earlier today): metric filters turn `[EVENT] BACKUP_FAILED`/`UPLOAD_FAILED`/`BACKUP_SUCCEEDED` into
+  CloudWatch metrics. Verified end to end with a real forced failure (nonexistent S3 bucket, run through the
+  actual systemd path): the metric incremented within about a minute.
+- **4 alarms** (EC2 status check, sustained high CPU, low disk, backup failure) → 1 SNS topic → your email
+  (subscription pending your confirmation — check your inbox). **A second real gotcha caught while testing,
+  not left for later**: the CloudWatch Agent auto-tags `disk_used_percent`/`mem_used_percent` with
+  `path`/`device`/`fstype`/`host` dimensions; the first version of the disk alarm queried the metric without
+  them and sat in a false `ALARM` (missing-data breach) despite real usage being 57%. Fixed by matching the
+  actual published dimensions; confirmed transitioning to `OK` against real data afterward.
+- SNS-publish path verified via `set-alarm-state` (forced `ALARM` → confirmed action fired via alarm history
+  → reset to `OK`); real email delivery still needs your subscription confirmation.
+- One dashboard, `KarosL-Staging`. Full reference: `docs/CLOUDWATCH_MONITORING.md`.
+
 ## S3 backup: explicit encryption check + monitoring-event structure (2026-08-19)
 
 Same day's fourth pass, closing two specific gaps found by comparing the S3 backup work below against a

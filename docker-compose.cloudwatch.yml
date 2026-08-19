@@ -1,0 +1,27 @@
+# KarosL staging — ship the frontend container's stdout/stderr (nginx access
+# and error logs, since the official nginx image symlinks both to
+# /dev/stdout and /dev/stderr) straight to CloudWatch Logs via Docker's
+# built-in awslogs logging driver. No sidecar container, no extra agent for
+# this specific source — Docker Engine talks to CloudWatch Logs directly.
+#
+# Apply alongside the other overlays:
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml \
+#     -f docker-compose.cloudwatch.yml up -d
+#
+# Requires the EC2 instance role to have logs:CreateLogGroup/CreateLogStream/
+# PutLogEvents on the target log group — see docs/CLOUDWATCH_MONITORING.md.
+#
+# Deliberately NOT applied to `backend`: Django's own WARNING+ file log
+# (~/apps/karosl -> backend_logs volume -> karosl.log) is already shipped by
+# the CloudWatch Agent (host-side file tailing, see docs/CLOUDWATCH_MONITORING.md).
+# Also shipping backend's raw stdout here would duplicate the same events
+# into a second log group for no benefit.
+
+services:
+  frontend:
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: eu-north-1
+        awslogs-group: /karosl/staging/nginx
+        awslogs-create-group: "true"

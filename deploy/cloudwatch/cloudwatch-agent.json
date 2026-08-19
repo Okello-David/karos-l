@@ -1,0 +1,40 @@
+{
+  "agent": {
+    "metrics_collection_interval": 300,
+    "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/lib/docker/volumes/karosl_backend_logs/_data/karosl.log",
+            "log_group_name": "/karosl/staging/django",
+            "log_stream_name": "{instance_id}",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/home/ec2-user/logs/karosl-backup.log",
+            "log_group_name": "/karosl/staging/backup",
+            "log_stream_name": "{instance_id}",
+            "timezone": "UTC"
+          }
+        ]
+      }
+    }
+  },
+  "metrics": {
+    "namespace": "KarosL/Staging",
+    "metrics_collected": {
+      "disk": {
+        "measurement": ["used_percent"],
+        "resources": ["/"],
+        "metrics_collection_interval": 300
+      },
+      "mem": {
+        "measurement": ["mem_used_percent"],
+        "metrics_collection_interval": 300
+      }
+    }
+  }
+}

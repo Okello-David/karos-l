@@ -111,7 +111,8 @@ Staging is **live** in `eu-north-1` on instance `i-0afd1871b46296500` (`karosl-s
 
 **Post-deployment verification (2026-07-29):** 14/14 smoke-test workflows pass through the public IP; all three containers healthy with 0 restarts and 0 errors in logs; security review all-pass (`DEBUG=False`, secrets only in the server `.env`, only port 80 public, 8000 on loopback, 5432 unpublished, SSH restricted, no demo account). Details in `docs/AWS_STAGING_CHECKLIST.md` §4 and `docs/PROJECT_STATE.md`.
 
-- **Observability** — logs, error counting, resource and disk inspection: `docs/DEVOPS.md` §11.
+- **Observability** — logs, error counting, resource and disk inspection: `docs/DEVOPS.md` §11. CloudWatch
+  Logs, alarms, and SNS email alerting (added 2026-08-19): `docs/CLOUDWATCH_MONITORING.md`.
 - **Backup & recovery** — `pg_dump`, copying the dump off the instance, and the safe disposable-database restore pattern: `docs/DEVOPS.md` §12. Full S3 architecture (bucket, IAM, retention, `scripts/restore-from-s3.sh`'s safety guarantees): `docs/S3_BACKUP_ARCHITECTURE.md`.
 
 ### HTTPS — added 2026-07-31

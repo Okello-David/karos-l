@@ -227,6 +227,10 @@ Helper: `./scripts/docker-logs.sh --status` (status + resources + disk), `./scri
 
 Everything below is read-only and works identically locally and on the EC2 staging host.
 
+**Beyond local `docker compose logs`**: staging ships Django's WARNING+ log, nginx's access/error logs, and
+backup run output to CloudWatch Logs, with alarms on EC2 health, disk, and backup failures notifying via
+SNS email. Full reference, including the IAM policy and troubleshooting: `docs/CLOUDWATCH_MONITORING.md`.
+
 ### Logs
 
 ```bash

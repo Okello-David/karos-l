@@ -2,6 +2,38 @@
 
 ## [Unreleased]
 
+### Added — Basic CloudWatch observability (2026-08-19)
+- **3 CloudWatch Logs groups**, 14-day retention: `/karosl/staging/django` (Django's existing WARNING+
+  `karosl.log`), `/karosl/staging/nginx` (frontend container stdout via Docker's `awslogs` logging driver,
+  new `docker-compose.cloudwatch.yml` overlay), `/karosl/staging/backup` (backup script `[EVENT]` output).
+- **CloudWatch Agent installed** (`amazon-cloudwatch-agent`, 1.300067.1 via dnf) for file-based log tailing
+  and `disk_used_percent`/`mem_used_percent` metrics at 5-minute resolution. Config at
+  `deploy/cloudwatch/cloudwatch-agent.json`. Confirmed the installable version predates native journald
+  support before designing around it, rather than assuming either way.
+- **`deploy/systemd/karosl-backup.service`**: `ExecStart` now tees through `set -o pipefail; ... | tee -a
+  ~/logs/karosl-backup.log`, giving the agent a stable file to tail without changing the existing
+  `journalctl -u karosl-backup.service` behavior. The `pipefail` is load-bearing — without it a failed
+  backup would report success to systemd. New `deploy/logrotate.d/karosl-backup` keeps that file small.
+- **2 CloudWatch Logs metric filters** on `/karosl/staging/backup` → `KarosL/Staging` namespace:
+  `BackupFailures` (matches `[EVENT] BACKUP_FAILED`/`UPLOAD_FAILED`) and `BackupSuccesses`. This is the
+  monitoring integration `docs/S3_BACKUP_ARCHITECTURE.md` §11 described as deferred future work earlier
+  today. Verified for real with a deliberate forced upload failure — metric incremented within ~1 minute.
+- **4 CloudWatch alarms** → 1 new SNS topic (`karosl-staging-alerts`, email subscription pending
+  confirmation) → 1 email: EC2 status-check-failed, sustained high CPU, low disk, backup failure. Each
+  documented with threshold, notification behavior, and expected response in
+  `docs/CLOUDWATCH_MONITORING.md`.
+- **1 dashboard** (`KarosL-Staging`): CPU, status check, disk, backup successes/failures, alarm status.
+- **New IAM inline policy** `karosl-cloudwatch-logs-metrics` on the existing `karosl-staging-backup-role` —
+  `logs:*` scoped to `/karosl/staging/*`, plus `cloudwatch:PutMetricData` (the one action AWS doesn't
+  support resource-scoping on). No new role, no long-lived credentials.
+- **Two real bugs caught and fixed during setup**: (1) the tee-wrapper pipeline would have silently
+  swallowed backup failures without `pipefail` — caught before relying on it, verified `systemctl is-failed`
+  still reports correctly; (2) the disk alarm initially sat in a false `ALARM` because the CloudWatch Agent
+  auto-tags `disk_used_percent` with dimensions the first alarm definition omitted — caught by comparing the
+  alarm's `INSUFFICIENT_DATA`/missing-data reason against real `df -h` output, fixed, reverified against
+  real data.
+- New `docs/CLOUDWATCH_MONITORING.md`. No RDS, load balancer, NAT Gateway, or ECS/Fargate created.
+
 ### Added — S3 backup: explicit encryption check + monitoring-event structure (2026-08-19)
 - **`scripts/backup-to-s3.sh`** now checks the uploaded object's actual `ServerSideEncryption` field via
   `head-object` (not just the bucket's default-encryption setting) and `die`s if it's empty; prints

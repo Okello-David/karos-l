@@ -1,7 +1,9 @@
 # KarosL — nightly PostgreSQL dump to S3.
 #
 # Install on the staging server (see docs/DEVOPS.md §12):
+#   mkdir -p ~/logs
 #   sudo cp deploy/systemd/karosl-backup.* /etc/systemd/system/
+#   sudo cp deploy/logrotate.d/karosl-backup /etc/logrotate.d/karosl-backup
 #   sudo systemctl daemon-reload
 #   sudo systemctl enable --now karosl-backup.timer
 #
@@ -20,12 +22,21 @@ After=docker.service network-online.target
 Type=oneshot
 User=ec2-user
 WorkingDirectory=/home/ec2-user/apps/karosl
-ExecStart=/home/ec2-user/apps/karosl/scripts/backup-to-s3.sh
+# Piped through tee into a plain file so the CloudWatch Agent (file-tailing
+# only — see docs/CLOUDWATCH_MONITORING.md for why journald isn't used) has a
+# stable path to read. `set -o pipefail` is mandatory, not decorative: without
+# it, a POSIX pipeline's exit status is tee's (always 0), not the backup
+# script's — a failed backup would silently report success to systemd, and
+# `systemctl --failed` would never see it.
+ExecStart=/bin/bash -c 'set -o pipefail; /home/ec2-user/apps/karosl/scripts/backup-to-s3.sh 2>&1 | tee -a /home/ec2-user/logs/karosl-backup.log'
 
 # The script's own checks are the real guard; this just stops a hung dump
 # from holding the timer open forever.
 TimeoutStartSec=900
 
-# Output goes to the journal: `journalctl -u karosl-backup.service`
+# Output still goes to the journal too (tee doesn't change that — this is the
+# unit's own stdout/stderr, journal capture is independent of the tee target):
+# `journalctl -u karosl-backup.service` keeps working exactly as documented
+# elsewhere. The tee'd file at ~/logs/karosl-backup.log is what's new.
 StandardOutput=journal
 StandardError=journal
