@@ -1,5 +1,101 @@
 # Release Plan
 
+## S3 backup: explicit encryption check + monitoring-event structure — 2026-08-19
+
+Small delta on top of the S3 backup work below, against a fuller brief covering the same ground. **No new
+AWS resources, no bucket/IAM changes** — just two closed gaps: an explicit per-object encryption check
+(the bucket's default-encryption *policy* isn't quite the same claim as "this object is encrypted," so
+check the object), and a `[EVENT]`-prefixed log vocabulary on both scripts so a future CloudWatch setup has
+something structured to filter on. Verified on both the success path and a deliberate failure. Full detail:
+`docs/S3_BACKUP_ARCHITECTURE.md` §§11–12.
+
+### Recommendation for the next sprint
+
+Unchanged — the purchased domain remains the top item.
+
+---
+
+## S3 backup restructure + restore automation — 2026-08-19
+
+Same-day follow-on to the HTTPS-via-IP work below, against a fuller backup-architecture brief. **No new AWS
+resources** — reused the existing bucket and IAM role rather than creating parallel ones. Closed the two
+real gaps: restore was manual-only (now automated, and provably safe — it cannot reach the live database),
+and retention was flat 30-day-everything (now tiered: 30-day daily, 400-day monthly). Full detail and
+verification evidence: `docs/S3_BACKUP_ARCHITECTURE.md`, `docs/PROJECT_STATE.md`.
+
+### Recommendation for the next sprint
+
+Unchanged from the entries below — the purchased domain remains the top item. Worth adding to the list now
+that restore is automated: exercising `restore-from-s3.sh` periodically (not just once, today) is the
+strongest ongoing proof backups stay good — consider folding a periodic run into whatever comes after the
+domain work, rather than letting "we tested it once" quietly become the only evidence it ever works.
+
+---
+
+## HTTPS via bare EC2 IP — 2026-08-19
+
+Enabled `https://<EC2_PUBLIC_IP>` with a real, browser-trusted certificate — a genuinely new capability
+(Let's Encrypt IP-address certificates only went GA 2026-01-15), not a rebuild of the existing sslip.io
+HTTPS path, which was kept running unchanged alongside it. **No domain purchased, no RDS/ALB/NAT/CloudFront,
+no security-group change, no application code changed.**
+
+**Result: two independent, verified HTTPS access paths, sharing port 443 via `default_server` + SNI, with
+automated renewal proven by forcing it rather than waiting.**
+
+- Certbot on the instance was too old (`dnf`-packaged 2.6.0) for IP-cert support; installed a modern one
+  (5.7.0) into an isolated venv — cutting the AL2023 system Python 3.9 → 3.12 requirement was itself a real
+  finding, not assumed from generic docs.
+- A deploy-hook that reloads nginx after renewal **already existed** from 2026-07-31, found rather than
+  built — closes what would otherwise have been a real gap for both certs, not just the new one.
+- Forced a real renewal (`--force-renewal`) rather than waiting for the ~6-day natural expiry: succeeded,
+  deploy-hook fired, app stayed up with zero manual intervention.
+- Full browser smoke test against the bare-IP origin, fresh login (separate cookie origin), zero console
+  errors, `AUDIT-TEST` records cleaned up afterward, dashboard back at exact baseline.
+- `scripts/recover-staging.sh` extended so a *future* IP change (the underlying problem this whole area
+  exists to manage) repairs both certificates, not just the hostname one — tested for real against the
+  live, already-running instance (idempotent skip-path), including the orphan-sweep regex fix that keeps it
+  from deleting the certs it just issued.
+- Full detail: `docs/HTTPS_IP_CERTIFICATE.md`.
+
+### Recommendation for the next sprint
+
+Unchanged — the purchased domain remains the top item, now covering two HTTPS paths worth simplifying into
+one once it lands.
+
+---
+
+## Live Pilot hardening audit — 2026-08-19
+
+KarosL entered a controlled **Live Pilot**: real accommodation records now go into staging. The brief asked
+to "harden the deployment," but most of that work was already done by the 2026-08-01 sprints below — this
+was an audit to prove it, not a build. **No application code changed, no new AWS resources, no destructive
+operations against live data.**
+
+**Result: every mechanism the live-pilot bar requires was exercised and passed, and the instance now stays
+up continuously instead of stopping between sessions.**
+
+- Data survival, backup (dry-run + real + the `Persistent=true` catch-up firing correctly after 18 days
+  off), container restart recovery, and a full browser smoke test (login through Property Explorer, using
+  `AUDIT-TEST`-prefixed records archived afterward) were all verified directly against the running instance
+  — see `docs/PROJECT_STATE.md` for the detail and evidence.
+- **The decision that actually changes something:** staging stops being stopped between sessions. Live-pilot
+  data entry needs the app reachable when the client or her staff use it, not only when an engineer starts
+  it. This makes the sslip.io IP-churn problem dormant for now (no restarts, no new IP, no broken cert) but
+  does not fix it — a purchased domain remains the real fix.
+- Two non-blocking findings recorded for later cleanup: a leftover `Verify Tester` occupant from the
+  2026-07-31 pass that was never removed, and the Units admin page's property filter not applying when
+  "All Sections" is selected.
+
+### Recommendation for the next sprint
+
+**The purchased domain, now for a stronger reason than before.** It was previously "nice to have before
+real users"; it is now "the instance runs continuously with real user data on it, and the only thing
+standing between that and a broken cert is nobody restarting it." Second priority, unchanged from the last
+two passes: **"move occupant to another unit"** — still the most likely real gap to surface now that actual
+staff, not a demo, are using the app day to day.
+
+---
+
 ## Demo-readiness pass: Reports built, staging seeded — 2026-08-01
 
 The domain sprint was **deferred** (it needs a purchased domain, and the budget for that follows client

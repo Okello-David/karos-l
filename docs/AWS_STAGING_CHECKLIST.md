@@ -2,16 +2,50 @@
 
 Status: **Executed 2026-07-29 — staging is live in `eu-north-1`.** Sections 1–3 are complete; Section 4 is partially verified (see the progress note below). This is the tick-list for KarosL's first AWS staging deployment (Phase 2 of `docs/AWS_DEPLOYMENT_PLAN.md`) — a single EC2 instance running the same Docker Compose stack already verified locally.
 
-> **Deployment progress (2026-07-29).** §1 account safety: budget + alerts confirmed by the account owner before provisioning; region `eu-north-1`. §2 EC2 + security group: done — instance `i-0afd1871b46296500`, SG `karosl-staging-sg` (`sg-065fb018e22aa18a5`), auto-assigned public IP, no Elastic IP. §3 server setup: done, including a 2 GB swapfile and a buildx upgrade (see below). §4 verification: **infrastructure and unauthenticated checks pass; the authenticated workflow walkthrough is still outstanding** because the `karosadmin` password has not been set. §5 cleanup: not yet needed — remember to stop the instance between sessions.
+> **Superseded as of 2026-08-19: staging holds real accommodation records and runs continuously (Live
+> Pilot).** The "no real tenant data" scope reminder below and "stop the instance between sessions" in the
+> progress note are historical — they described the original staging-only deployment before the live pilot
+> began. See the Live Pilot section near the end of this file, and `docs/PROJECT_STATE.md`, for current
+> status. This file's Sections 1–5 remain accurate as a record of the original provisioning.
+
+> **Deployment progress (2026-07-29).** §1 account safety: budget + alerts confirmed by the account owner before provisioning; region `eu-north-1`. §2 EC2 + security group: done — instance `i-0afd1871b46296500`, SG `karosl-staging-sg` (`sg-065fb018e22aa18a5`), auto-assigned public IP, no Elastic IP. §3 server setup: done, including a 2 GB swapfile and a buildx upgrade (see below). §4 verification: **infrastructure and unauthenticated checks pass; the authenticated workflow walkthrough is still outstanding** because the `karosadmin` password has not been set. §5 cleanup: not yet needed — ~~remember to stop the instance between sessions~~ (superseded — see above).
 >
 > **Deviation from plan, worth knowing:** Amazon Linux 2023 ships Docker with buildx 0.12.1, but Compose v5 requires buildx ≥ 0.17.0, so `docker compose build` failed on first run. Fixed by installing a current buildx plugin; `scripts/server-setup.sh` now does this automatically. Full detail in `docs/AWS_EC2_DEPLOYMENT.md` §4.3b.
 
 > ⛔ **GATE — Section 1 must be fully green before anything in Sections 2–3 is touched.**
 > **No AWS deployment should proceed before budget alerts are configured.** Not the EC2 instance, not the security group, not an Elastic IP, not a test bucket. The budget is the first thing created in the account.
 
-**Scope reminder:** this is **staging only**. No RDS, no load balancer, no NAT Gateway, no HTTPS, no real tenant data. Production is a later, separate decision (`docs/AWS_DEPLOYMENT_PLAN.md` Phases 3–6).
+**Scope reminder (original, 2026-07-29):** this was **staging only**. No RDS, no load balancer, no NAT Gateway, no HTTPS, no real tenant data. Production is a later, separate decision (`docs/AWS_DEPLOYMENT_PLAN.md` Phases 3–6). **HTTPS and real tenant data have since arrived** (2026-07-31 and 2026-08-19 respectively) without any of the deferred items — still no RDS, load balancer, or NAT Gateway.
 
 Step-by-step commands for Sections 3–4 live in `docs/AWS_EC2_DEPLOYMENT.md`. This file is the checklist; that file is the runbook.
+
+---
+
+## Live Pilot audit — 2026-08-19
+
+Confirmed still true under real data and continuous uptime, checked directly against the running instance:
+
+- [x] Restart policies: all three services `unless-stopped`; confirmed via `docker inspect`, not assumed.
+- [x] Data persistence: `postgres_data`/`backend_backups`/`backend_logs` named volumes; row counts identical
+      before and after a full `db`+`backend`+`frontend` restart.
+- [x] Backup: `backup-to-s3.sh` dry-run and real run both succeeded; `karosl-backup.timer` enabled/active,
+      and its `Persistent=true` catch-up fired correctly after 18 days stopped.
+- [x] No inbound 5432/8000/5173 — confirmed both via `verify-staging.sh`'s external port checks and the
+      security group table below (unchanged).
+- [x] No RDS, NAT Gateway, ALB, or extra EIP for KarosL — confirmed via `aws ec2/rds/elbv2 describe-*`.
+- [ ] Elastic IP / purchased domain — **still not done.** Was low-priority while stopping between sessions
+      made it self-correcting; now the instance runs continuously so a restart is rarer, but no less
+      disruptive when it happens. Recommended for the next sprint (`docs/RELEASE_PLAN.md`).
+
+## HTTPS via bare IP + security-group re-verification — 2026-08-19
+
+- [x] `https://<EC2_PUBLIC_IP>` shows a trusted Let's Encrypt certificate — full record `docs/HTTPS_IP_CERTIFICATE.md`.
+- [x] Security-group inbound rules re-confirmed **unchanged and already correct** for this work: SSH 22 from
+      the admin `/32` only, HTTP 80 and HTTPS 443 from `0.0.0.0/0`, no new rule needed (the IP cert reuses
+      the same port 443 the hostname cert already uses).
+- [x] 5432/8000/5173 confirmed closed on **both** the hostname and bare-IP targets via `verify-staging.sh`.
+- [x] No new AWS resources created for this work — reused the existing security group, the existing EC2
+      instance role, no new IAM policy for this piece (certbot changes were host-level only).
 
 ---
 

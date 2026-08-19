@@ -2,6 +2,93 @@
 
 ## [Unreleased]
 
+### Added — S3 backup: explicit encryption check + monitoring-event structure (2026-08-19)
+- **`scripts/backup-to-s3.sh`** now checks the uploaded object's actual `ServerSideEncryption` field via
+  `head-object` (not just the bucket's default-encryption setting) and `die`s if it's empty; prints
+  `encrypted: AES256` on success. Verified against a real upload.
+- **Both `backup-to-s3.sh` and `restore-from-s3.sh`** now emit `[EVENT] BACKUP_STARTED`, `BACKUP_SUCCEEDED
+  key=... bytes=... version=...`, `BACKUP_FAILED stage=...`, `UPLOAD_FAILED stage=...`,
+  `RESTORE_TEST_SUCCEEDED key=... target_db=...`, and `RESTORE_TEST_FAILED stage=...` markers — a
+  structured vocabulary a future CloudWatch Logs metric filter can match on. `--list`/`--dry-run` emit
+  nothing (no real attempt happened). Verified on both paths: a real backup+restore produced
+  `BACKUP_SUCCEEDED`/`RESTORE_TEST_SUCCEEDED`, and a deliberately-broken run (nonexistent bucket) produced
+  `UPLOAD_FAILED stage=upload` with exit code 1 — the failure path fires correctly, not just the happy one.
+- No CloudWatch resources created — this prepares the log structure only, per the brief's explicit "prepare
+  the structure so CloudWatch monitoring can be added later," not "add monitoring now."
+- `docs/S3_BACKUP_ARCHITECTURE.md` §§11–12 document the full event vocabulary and what a future CloudWatch
+  setup would match against each marker.
+
+### Added — S3 backup restructure + restore automation (2026-08-19)
+- **New `scripts/restore-from-s3.sh`.** Automates the previously-manual disposable-database restore
+  procedure (`docs/DEVOPS.md` §12). Cannot reach the live database under any flag combination — hard-refuses
+  if `--target-db` matches the live `POSTGRES_DB` or `postgres`. Verified for real end to end: backup →
+  restore → row counts matched the live database exactly → disposable database confirmed dropped → live
+  database's own counts unchanged throughout.
+- **`scripts/backup-to-s3.sh` restructured**: new key layout `database/karosl_db_<date>_<time>.sql.gz`
+  (was `pg_dump/<year>/karosl-staging-<date>-<time>.sql.gz`); old objects left in place, nothing deleted or
+  migrated. Upload confirmation now also captures and prints the S3 `VersionId`. New: after the first
+  successful backup of a calendar month, an S3-to-S3 copy (no second `pg_dump`) lands at
+  `database/monthly/<year>-<month>.sql.gz`.
+- **Tiered S3 lifecycle**: 30-day expiration on `database/` (unchanged from before), new 400-day expiration
+  on `database/monthly/`. The existing `pg_dump/` legacy rule is untouched.
+- **IAM policy extended** to `database/*` (read+write), keeping `pg_dump/*` read-only for historical
+  restores. Still no `s3:*`, no `s3:DeleteObject`, no other buckets — verified via `aws iam get-role-policy`.
+- **New `docs/S3_BACKUP_ARCHITECTURE.md`** — the full reference: bucket, IAM policy, key layout, backup and
+  restore process, retention rationale (including the documented S3 overlapping-rule/longest-retention-wins
+  behavior the monthly tier relies on), security checklist, troubleshooting, disaster recovery.
+- Reused the existing `karosl-staging-backups-908877263055` bucket rather than creating a new one — already
+  met every requirement (private, versioned, SSE-S3, all four Public Access Block flags on), re-confirmed via
+  AWS CLI before touching anything.
+
+### Added — HTTPS via bare EC2 IP (2026-08-19)
+- **`https://<EC2_PUBLIC_IP>` now shows a real, browser-trusted certificate** — a Let's Encrypt IP-address
+  certificate, GA since 2026-01-15. The existing sslip.io-hostname HTTPS path was kept running unchanged,
+  not replaced: two `server{}` blocks now share port 443 in `deploy/nginx/staging-https.conf.template`,
+  picked via `default_server` (bare-IP/no-SNI) and SNI (hostname) respectively.
+- **Certbot upgraded via an isolated venv** (`/opt/certbot-venv`, 5.7.0) rather than touching the dnf
+  package (2.6.0, no IP-cert support) — required installing `python3.12` alongside the system Python 3.9,
+  since certbot ≥5.0 needs Python ≥3.10. Renewal cut over via a systemd drop-in override
+  (`/etc/systemd/system/certbot-renew.service.d/override.conf`), not by modifying the dnf package's files.
+- **`docker-compose.https.yml`**: added `PUBLIC_IP` env var, `NGINX_ENVSUBST_FILTER` extended to
+  `STAGING_DOMAIN|PUBLIC_IP`.
+- **Renewal proven for real**: `certbot renew --cert-name <IP> --force-renewal` succeeded, the
+  already-existing deploy-hook (`/etc/letsencrypt/renewal-hooks/deploy/reload-karosl-nginx.sh`, found from
+  2026-07-31, not newly created) fired and reloaded nginx, `verify-staging.sh` was green immediately after
+  with zero manual intervention.
+- **`scripts/recover-staging.sh` extended** to issue/renew the IP cert alongside the hostname cert on future
+  IP changes, and to sweep orphaned IP-cert lineages the same way it already swept hostname ones. Tested for
+  real against the live running instance; caught and fixed a real bug in the process (the orphan-sweep
+  regex needed to exclude the current IP, not just the current hostname, or it would have deleted the
+  certificate it had just issued).
+- **Full browser smoke test** against the bare-IP origin with a fresh login, zero console errors (no mixed
+  content, no CORS, no CSRF), `AUDIT-TEST` records cleaned up afterward.
+- Docs: new `docs/HTTPS_IP_CERTIFICATE.md`; updated `docs/DOMAIN_HTTPS_PLAN.md`, `docs/DEVOPS.md`,
+  `docs/DEPLOYMENT.md`, `docs/AWS_STAGING_CHECKLIST.md`, `.env.example`.
+
+### Verified — Live Pilot hardening audit (2026-08-19)
+- **KarosL entered Live Pilot: staging now holds real accommodation records and runs continuously.** An
+  audit, not a build — the mechanisms this phase needs (backup, recovery, HTTPS) already existed from
+  2026-08-01; this pass proved they hold under real data rather than adding new ones.
+- **Backup proven under the exact scenario it exists for.** `backup-to-s3.sh --dry-run` and a real run both
+  succeeded (21 tables). `karosl-backup.timer` had not fired in 18 days (instance was off); its
+  `Persistent=true` catch-up fired ~4 minutes after this boot, confirmed via `journalctl`, no failed units.
+- **Data persistence confirmed under real load.** Row counts identical before and after a full
+  `db`+`backend`+`frontend` restart (2 properties, 3 sections, 11 units, 16 occupants, 14 occupancies, 13
+  payments, 13 receipts).
+- **Full browser smoke test against the live HTTPS URL**, `karosadmin` login through Property Explorer:
+  login, dashboard, property → section → unit creation, occupant registration, occupancy assignment,
+  payment recording, receipt PDF generation. All `AUDIT-TEST`-prefixed records archived afterward; dashboard
+  returned to the exact pre-test baseline. The payment and its receipt persist permanently — KarosL has no
+  delete path for financial records, by design.
+- **Two non-blocking findings:** a `Verify Tester` occupant left over from 2026-07-31 was never cleaned up
+  (not touched today — not this audit's data to remove unilaterally); the Administration → Units page's
+  property filter doesn't apply when "All Sections" is selected (section-level filtering works correctly).
+- **Decision: staging no longer stops between sessions.** Live-pilot access needs the app reachable on the
+  client's schedule. This makes the sslip.io IP-churn problem dormant, not fixed — see `docs/PROJECT_STATE.md`.
+- **AWS footprint reconfirmed clean**: no RDS/NAT/ALB/extra EIP for KarosL (`aws ec2/rds/elbv2 describe-*`).
+- Docs updated: `docs/PROJECT_STATE.md`, `docs/RELEASE_PLAN.md`, `docs/DEPLOYMENT.md`, `docs/DEVOPS.md`,
+  `docs/AWS_STAGING_CHECKLIST.md`.
+
 ### Added — One-command staging recovery (2026-08-01)
 - **`scripts/recover-staging.sh`** takes staging from *stopped* to *verified working* in one command, run from the workstation: start the instance (retrying AWS capacity errors) → repair the `.env` origins → issue a certificate for the new hostname → recreate the containers → delete orphaned certificates → verify from outside. **Idempotent** — re-running it against a healthy instance changes nothing and costs no Let's Encrypt quota.
 - **`scripts/verify-staging.sh`** answers "is staging actually up?" honestly, from outside, exiting non-zero when it is not. Encodes the `DOMAIN_HTTPS_PLAN.md` §11 checklist — redirect, certificate identity/chain/expiry, `/api/health/`, SPA, deep link, 401 on a protected route, HSTS, and 8000/5432/5173 closed — so it stops being a list someone re-types from memory.

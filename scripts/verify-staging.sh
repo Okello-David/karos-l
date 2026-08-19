@@ -22,6 +22,13 @@
 #   ./scripts/verify-staging.sh                      # resolve the domain from AWS
 #   ./scripts/verify-staging.sh <domain-or-ip>       # check a specific host
 #
+# Passing a bare IP checks the Let's Encrypt IP-address certificate path
+# (docs/HTTPS_IP_CERTIFICATE.md) instead of the sslip.io hostname path — same
+# battery of checks, but the certificate identity lives in the SAN IP entry
+# (not the subject CN, which is empty on an IP cert) and the expiry threshold
+# is tighter: these certs are ~160h/6.67 days, not ~90 days, so "renewal is
+# failing" has to mean "<2 days left", not "<14 days left".
+#
 set -uo pipefail   # deliberately NOT -e: every check must run, so one failure
                    # does not hide the others behind it.
 
@@ -39,7 +46,7 @@ bad()  { printf '  \033[1;31m✗\033[0m %s\n' "$1"; FAIL=$((FAIL + 1)); }
 
 for arg in "$@"; do
     case "$arg" in
-        -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,31p' "$0"; exit 0 ;;
         -*) die "Unknown argument '$arg'. Try --help." ;;
     esac
 done
@@ -67,6 +74,12 @@ fi
 
 log "Checking https://${TARGET}"
 
+# An IP-literal target checks the IP-address certificate path instead of the
+# sslip.io hostname path — different cert identity location, different
+# expiry expectations, different port-scan target derivation.
+IS_IP=false
+[[ "$TARGET" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] && IS_IP=true
+
 # --- HTTP -> HTTPS ----------------------------------------------------------
 code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "http://${TARGET}/" 2>/dev/null)
 [ "$code" = "301" ] && ok "HTTP redirects to HTTPS (301)" || bad "HTTP did not redirect (got ${code:-no response})"
@@ -77,12 +90,21 @@ code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "http://${TARGET}/"
 cert=$(echo | timeout 15 openssl s_client -connect "${TARGET}:443" -servername "$TARGET" 2>/dev/null)
 if [ -n "$cert" ]; then
     subject=$(echo "$cert" | openssl x509 -noout -subject 2>/dev/null)
+    san=$(echo "$cert" | openssl x509 -noout -ext subjectAltName 2>/dev/null)
     verify=$(echo "$cert" | grep -m1 "Verify return code")
     enddate=$(echo "$cert" | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
 
-    echo "$subject" | grep -q "$TARGET" \
-        && ok "Certificate is for ${TARGET}" \
-        || bad "Certificate hostname mismatch (${subject:-none}) — the classic post-restart symptom"
+    # IP certs carry the identity in the SAN's IP entry, not the subject CN
+    # (which is empty) — check whichever is the right place for this target.
+    if [ "$IS_IP" = true ]; then
+        echo "$san" | grep -q "IP Address:${TARGET}" \
+            && ok "Certificate is for ${TARGET} (IP-address cert)" \
+            || bad "Certificate does not cover IP ${TARGET} (SAN: ${san:-none})"
+    else
+        echo "$subject" | grep -q "$TARGET" \
+            && ok "Certificate is for ${TARGET}" \
+            || bad "Certificate hostname mismatch (${subject:-none}) — the classic post-restart symptom"
+    fi
 
     echo "$verify" | grep -q "code: 0" \
         && ok "Certificate chain verifies (${verify#*: })" \
@@ -90,9 +112,18 @@ if [ -n "$cert" ]; then
 
     if [ -n "$enddate" ]; then
         days=$(( ( $(date -d "$enddate" +%s) - $(date +%s) ) / 86400 ))
-        if [ "$days" -lt 0 ];      then bad "Certificate EXPIRED ${days#-} days ago"
-        elif [ "$days" -lt 14 ];   then bad "Certificate expires in ${days} days — renewal is failing"
-        else                            ok "Certificate valid for ${days} more days"
+        if [ "$IS_IP" = true ]; then
+            # ~160h/6.67-day lifetime — "renewal is failing" means <2 days left,
+            # not <14. A healthy IP cert is *never* going to show 14+ days.
+            if [ "$days" -lt 0 ];    then bad "Certificate EXPIRED ${days#-} days ago"
+            elif [ "$days" -lt 2 ];  then bad "Certificate expires in ${days} days — renewal is failing"
+            else                          ok "Certificate valid for ${days} more days (short-lived IP cert)"
+            fi
+        else
+            if [ "$days" -lt 0 ];      then bad "Certificate EXPIRED ${days#-} days ago"
+            elif [ "$days" -lt 14 ];   then bad "Certificate expires in ${days} days — renewal is failing"
+            else                            ok "Certificate valid for ${days} more days"
+            fi
         fi
     fi
 else
@@ -130,8 +161,12 @@ curl -sSI --max-time 15 "https://${TARGET}/api/health/" 2>/dev/null | grep -qi "
     && ok "HSTS header present" || bad "HSTS header missing"
 
 # --- Ports that must stay shut ---------------------------------------------
-host_only="${TARGET%%.sslip.io}"
-host_only="${host_only//-/.}"
+if [ "$IS_IP" = true ]; then
+    host_only="$TARGET"
+else
+    host_only="${TARGET%%.sslip.io}"
+    host_only="${host_only//-/.}"
+fi
 for port in 8000 5432 5173; do
     if timeout 5 bash -c "</dev/tcp/${host_only}/${port}" 2>/dev/null; then
         bad "Port ${port} is OPEN to the internet — it must not be"

@@ -211,6 +211,7 @@ Helper: `./scripts/docker-logs.sh --status` (status + resources + disk), `./scri
 | Frontend container `unhealthy` after enabling HTTPS | Its `HEALTHCHECK` runs `wget http://127.0.0.1/healthz`; if port 80 redirects everything, wget follows to `https://127.0.0.1/` and fails certificate verification against the hostname. | Keep `/healthz` served on port 80 ahead of the catch-all redirect (`deploy/nginx/staging-https.conf.template`). |
 | Backend reports healthy but the database is down | With `SECURE_SSL_REDIRECT` on, the backend `HEALTHCHECK` curls Gunicorn directly with no `X-Forwarded-Proto`, so Django answers 301 — and `curl -f` treats 301 as success, so the check passes without testing anything. | `SECURE_REDIRECT_EXEMPT = [r'^api/health/$']` in `backend/config/settings.py`. |
 | Certificate expired after ~60–90 days | Renewal needs port **80** for the `http-01` challenge at every renewal, not just at issuance. Closing 80 after HTTPS works breaks it silently. | Keep 80 open; verify with `sudo certbot renew --dry-run`. |
+| The **bare-IP** certificate expires after ~6 days, not ~60–90 | This is expected and by design, not a bug — Let's Encrypt IP-address certificates are mandatorily short-lived (~160h). Don't apply the 60–90 day mental model from the row above to this cert. | `docs/HTTPS_IP_CERTIFICATE.md`. Verify with `sudo /opt/certbot-venv/bin/certbot renew --cert-name <IP> --dry-run`. |
 | `password authentication failed` / backend restart loop | `POSTGRES_PASSWORD` ≠ `DB_PASSWORD`; or `DB_HOST` is `localhost` instead of `db`; or `POSTGRES_PASSWORD` was changed after the volume was initialized — Postgres only reads it when creating an empty data directory. | Make the two match; use `DB_HOST=db`; to change an existing password use `ALTER USER` inside the db container (or `docker compose down -v`, which **destroys all data**). |
 | Migration errors | The entrypoint runs `migrate --noinput` before Gunicorn starts, so a failure means the container never serves traffic. It also gives up if `db` is not healthy within ~60s. | `docker compose logs backend`, `showmigrations`; restart once `db` is healthy. |
 | Frontend loads, API calls fail | Backend down, still starting, or unreachable on the compose network. | `docker compose exec frontend wget -qO- http://backend:8000/api/health/` isolates the nginx→gunicorn hop from browser→nginx. `502` in the nginx log = backend down; `404` = routing. |
@@ -281,6 +282,10 @@ curl -s localhost/api/health/                                  # liveness + DB c
 
 ## 12. Backup & recovery (staging, PostgreSQL in a container)
 
+**Full reference, including the IAM policy, retention design, restore-script safety guarantees, and the
+`[EVENT]` log markers both scripts emit for future CloudWatch monitoring:
+`docs/S3_BACKUP_ARCHITECTURE.md`.** This section stays the quick-reference/manual-procedure version.
+
 Staging runs PostgreSQL as a container with its data on the `postgres_data` named volume. That volume survives `docker compose down` and an EC2 reboot, but **not** `docker compose down -v` and **not** instance termination. Until RDS arrives (Phase 3), `pg_dump` is the whole disaster-recovery story — so it needs to be a habit, not a plan.
 
 Two independent mechanisms exist; they are not interchangeable:
@@ -322,9 +327,13 @@ journalctl -u karosl-backup.service -n 30 --no-pager
 Four properties of this setup are deliberate and worth knowing:
 
 - **No AWS keys on the box.** Access comes from the EC2 instance role `karosl-staging-backup-role`. Confirm with `aws sts get-caller-identity` (it should report the role, not a user) and by the absence of `~/.aws/credentials`.
-- **The role has no `s3:DeleteObject`.** A compromised instance can write backups and read them back, but cannot erase backup history. Expiry is the bucket's lifecycle rule's job (30 days), not the instance's.
+- **The role has no `s3:DeleteObject`.** A compromised instance can write backups and read them back, but cannot erase backup history. Expiry is the bucket's lifecycle rules' job — 30 days for daily backups, 400 days for the one-per-month tier under `database/monthly/` — not the instance's. Full retention rationale in `docs/S3_BACKUP_ARCHITECTURE.md` §6.
 - **The script verifies the dump before uploading** — non-zero size, `CREATE TABLE` statements present, `COPY` data blocks present. A 0-byte dump that looks successful in `ls` is the classic silent backup failure, and an exit code alone does not catch it.
-- **`Persistent=true` on the timer.** The instance is stopped between sessions, so scheduled runs are missed by design; without this the timer would silently skip to the following night and a stopped instance would never be backed up at all.
+- **`Persistent=true` on the timer.** Belt-and-braces: the instance stays running continuously during Live
+  Pilot, but if it is ever stopped (maintenance, a pause between pilots), a missed run is not silently
+  skipped to the following night — it fires shortly after next boot instead. Proven, not just configured:
+  after 18 days stopped, the 2026-08-19 audit watched the catch-up run fire ~4 minutes into the new boot and
+  land in S3, via `journalctl`.
 
 The manual procedure below remains correct and is what the script runs. Use it when you want to see each step, or when the script cannot run.
 
@@ -360,21 +369,28 @@ scp -i ~/.ssh/karosl-staging-key.pem \
   ec2-user@<EC2_PUBLIC_IP>:'~/backups/karosl-staging-*.sql' ./
 ```
 
-Store it somewhere that is not the EC2 instance. `scripts/backup-to-s3.sh` now does this automatically; `scp` remains the manual fallback, and off-box local storage is still infinitely better than on-box.
-
-To pull a dump back down from S3 — on the instance (the role grants read on the backup prefix), or from a workstation with account access:
-
-```bash
-aws s3 ls s3://<bucket>/pg_dump/ --recursive --region eu-north-1
-aws s3 cp s3://<bucket>/pg_dump/<year>/<dump>.sql.gz . --region eu-north-1
-gunzip <dump>.sql.gz
-```
-
-Then restore it into a **disposable** database, exactly as below.
+Store it somewhere that is not the EC2 instance. `scripts/backup-to-s3.sh` now does this automatically (uploading to the `database/` prefix, since 2026-08-19 — see `docs/S3_BACKUP_ARCHITECTURE.md` §2 for the key layout and why older `pg_dump/<year>/...` objects are left where they are); `scp` remains the manual fallback, and off-box local storage is still infinitely better than on-box.
 
 ### Restore into a disposable database — never over the live one
 
+**Automated (the normal path):**
+
 ```bash
+./scripts/restore-from-s3.sh --list      # see what's available
+./scripts/restore-from-s3.sh --latest    # download, decompress, restore into karosl_restore_test, verify, drop
+```
+
+This script **cannot** reach the live database under any flag combination — it hard-refuses if asked to
+target the live `POSTGRES_DB` name. See `docs/S3_BACKUP_ARCHITECTURE.md` §5 for the full design and the
+2026-08-19 end-to-end verification evidence.
+
+**Manual**, for when you want to see each step or the script can't run:
+
+```bash
+aws s3 ls s3://<bucket>/database/ --recursive --region eu-north-1
+aws s3 cp s3://<bucket>/database/<dump>.sql.gz . --region eu-north-1
+gunzip <dump>.sql.gz
+
 # Create a throwaway database alongside the live one
 docker compose exec -T db sh -c \
   'psql -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE karosl_restore_test;"' < /dev/null
@@ -388,7 +404,7 @@ docker compose exec -T db sh -c \
   'psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE karosl_restore_test;"' < /dev/null
 ```
 
-⚠️ **Risk note.** Restoring into the live `karosl` database with a `--clean` dump **drops and recreates every table**, destroying anything created since the dump. Never point a restore at the live database to "test" it. The disposable-database pattern above gives the same confidence with none of the risk.
+⚠️ **Risk note.** Restoring into the live `karosl` database with a `--clean` dump **drops and recreates every table**, destroying anything created since the dump. Never point a restore at the live database to "test" it. The disposable-database pattern above gives the same confidence with none of the risk. A real production restore (replacing live data on purpose) is a separate, manual, human-supervised procedure — `docs/S3_BACKUP_ARCHITECTURE.md` §5.
 
 ### Confirm the backup is not publicly reachable
 

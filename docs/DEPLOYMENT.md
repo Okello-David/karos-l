@@ -112,7 +112,7 @@ Staging is **live** in `eu-north-1` on instance `i-0afd1871b46296500` (`karosl-s
 **Post-deployment verification (2026-07-29):** 14/14 smoke-test workflows pass through the public IP; all three containers healthy with 0 restarts and 0 errors in logs; security review all-pass (`DEBUG=False`, secrets only in the server `.env`, only port 80 public, 8000 on loopback, 5432 unpublished, SSH restricted, no demo account). Details in `docs/AWS_STAGING_CHECKLIST.md` §4 and `docs/PROJECT_STATE.md`.
 
 - **Observability** — logs, error counting, resource and disk inspection: `docs/DEVOPS.md` §11.
-- **Backup & recovery** — `pg_dump`, copying the dump off the instance, and the safe disposable-database restore pattern: `docs/DEVOPS.md` §12.
+- **Backup & recovery** — `pg_dump`, copying the dump off the instance, and the safe disposable-database restore pattern: `docs/DEVOPS.md` §12. Full S3 architecture (bucket, IAM, retention, `scripts/restore-from-s3.sh`'s safety guarantees): `docs/S3_BACKUP_ARCHITECTURE.md`.
 
 ### HTTPS — added 2026-07-31
 
@@ -127,19 +127,29 @@ runbook in `docs/DOMAIN_HTTPS_PLAN.md` §9. **Move to a purchased domain before 
 Full record — domain and Elastic IP decisions, nginx/certbot design, Django settings, DNS guide, verification, and
 rollback: **`docs/DOMAIN_HTTPS_PLAN.md`**.
 
-**Accepted staging limitations:** ~~no HTTPS~~ (resolved), **no automated backups** (`pg_dump` is manual — now the
-top remaining gap, because HTTPS is what makes real data plausible), single point of failure, ephemeral public IP.
+### HTTPS via bare IP — added 2026-08-19
 
-### Cost safety while it exists
+`https://<EC2_PUBLIC_IP>` also now shows a trusted certificate — a real Let's Encrypt IP-address certificate,
+running **alongside**, not instead of, the sslip.io hostname path above. Short-lived by CA policy (~160h),
+with automated renewal proven via a forced-renewal test. Full record: **`docs/HTTPS_IP_CERTIFICATE.md`**.
 
-The instance has an **auto-assigned public IP and no Elastic IP**, so nothing bills when it is stopped except the 10 GB EBS root volume. **Stop it between testing sessions:**
+**Accepted staging limitations:** ~~no HTTPS~~ (resolved), ~~no automated backups~~ (resolved 2026-08-01 —
+`scripts/backup-to-s3.sh` + a nightly systemd timer), single point of failure, ephemeral public IP.
+
+### Cost safety
+
+**Since the 2026-08-19 Live Pilot audit, the instance stays running continuously** — live-pilot data entry
+needs the app reachable on the client's schedule, not only when an engineer starts it, and stopping between
+sessions is what causes the public-IP-churn problem in the first place (see below). The instance has an
+**auto-assigned public IP and no Elastic IP**, so nothing bills while stopped except the 10 GB EBS root
+volume — that still matters if the pilot ever pauses:
 
 ```bash
 aws ec2 stop-instances  --instance-ids i-0afd1871b46296500 --region eu-north-1
 aws ec2 start-instances --instance-ids i-0afd1871b46296500 --region eu-north-1
 ```
 
-After a start the **public IP changes**, so `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, and `CORS_ALLOWED_ORIGINS` in the server's `.env` must be updated and `docker compose up -d` re-run — see `docs/AWS_EC2_DEPLOYMENT.md` §13.
+After a start the **public IP changes**, so `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, and `CORS_ALLOWED_ORIGINS` in the server's `.env` must be updated and `docker compose up -d` re-run — or just run `./scripts/recover-staging.sh`, which does exactly that. See `docs/AWS_EC2_DEPLOYMENT.md` §13.
 
 ### Redeploying a code change
 

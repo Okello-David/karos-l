@@ -24,8 +24,12 @@
 #   1. reads the instance's current public IP from IMDSv2 (no AWS creds needed)
 #   2. derives the sslip.io hostname (IP with dots replaced by dashes)
 #   3. backs up .env, then rewrites ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS,
-#      CORS_ALLOWED_ORIGINS and STAGING_DOMAIN
-#   4. prints the certbot + compose commands to finish the job
+#      CORS_ALLOWED_ORIGINS, STAGING_DOMAIN and PUBLIC_IP — CSRF/CORS carry
+#      BOTH the sslip.io hostname's origin and the bare-IP origin, since
+#      docs/HTTPS_IP_CERTIFICATE.md's bare-IP HTTPS path needs its own origin
+#      trusted too, not just the hostname's
+#   4. prints the certbot + compose commands to finish the job (both the
+#      hostname cert and the IP cert)
 #
 # What it deliberately does NOT do:
 #   - run certbot, or issue/renew any certificate
@@ -77,12 +81,13 @@ NEW_DOMAIN="${NEW_IP//./-}.sslip.io"
 
 # --- Compare against what .env currently says -------------------------------
 CURRENT_DOMAIN=$(grep -E '^STAGING_DOMAIN=' .env | head -1 | cut -d= -f2- || true)
+CURRENT_PUBLIC_IP=$(grep -E '^PUBLIC_IP=' .env | head -1 | cut -d= -f2- || true)
 
 printf '\n    current IP:      %s\n' "$NEW_IP"
 printf '    new hostname:    %s\n' "$NEW_DOMAIN"
-printf '    .env currently:  %s\n' "${CURRENT_DOMAIN:-<STAGING_DOMAIN not set>}"
+printf '    .env currently:  %s / PUBLIC_IP=%s\n' "${CURRENT_DOMAIN:-<STAGING_DOMAIN not set>}" "${CURRENT_PUBLIC_IP:-<not set>}"
 
-if [ "$CURRENT_DOMAIN" = "$NEW_DOMAIN" ]; then
+if [ "$CURRENT_DOMAIN" = "$NEW_DOMAIN" ] && [ "$CURRENT_PUBLIC_IP" = "$NEW_IP" ]; then
     log "Already correct — .env matches the current IP. Nothing to do."
     printf '\nIf the API is still failing, the problem is elsewhere. Check:\n'
     printf '  docker compose ps\n'
@@ -95,13 +100,17 @@ fi
 # HEALTHCHECK curls localhost:8000, and Django 400s an unlisted Host — which
 # marks a perfectly healthy container as unhealthy forever.
 NEW_ALLOWED="${NEW_DOMAIN},${NEW_IP},localhost,127.0.0.1,backend"
+# Both origins trusted: the hostname path (docs/DOMAIN_HTTPS_PLAN.md) and the
+# bare-IP path (docs/HTTPS_IP_CERTIFICATE.md) are served side by side.
+NEW_CSRF_CORS="https://${NEW_DOMAIN},https://${NEW_IP}"
 
 if [ "$DRY_RUN" = true ]; then
     log "--dry-run: these lines WOULD be written to .env"
     printf '    ALLOWED_HOSTS=%s\n'        "$NEW_ALLOWED"
-    printf '    CSRF_TRUSTED_ORIGINS=%s\n' "https://${NEW_DOMAIN}"
-    printf '    CORS_ALLOWED_ORIGINS=%s\n' "https://${NEW_DOMAIN}"
+    printf '    CSRF_TRUSTED_ORIGINS=%s\n' "$NEW_CSRF_CORS"
+    printf '    CORS_ALLOWED_ORIGINS=%s\n' "$NEW_CSRF_CORS"
     printf '    STAGING_DOMAIN=%s\n'       "$NEW_DOMAIN"
+    printf '    PUBLIC_IP=%s\n'            "$NEW_IP"
     exit 0
 fi
 
@@ -135,41 +144,55 @@ PY
 }
 
 set_env_var ALLOWED_HOSTS        "$NEW_ALLOWED"
-set_env_var CSRF_TRUSTED_ORIGINS "https://${NEW_DOMAIN}"
-set_env_var CORS_ALLOWED_ORIGINS "https://${NEW_DOMAIN}"
+set_env_var CSRF_TRUSTED_ORIGINS "$NEW_CSRF_CORS"
+set_env_var CORS_ALLOWED_ORIGINS "$NEW_CSRF_CORS"
 set_env_var STAGING_DOMAIN       "$NEW_DOMAIN"
+set_env_var PUBLIC_IP            "$NEW_IP"
 chmod 600 .env
 
 log "Updated .env:"
-grep -E '^(ALLOWED_HOSTS|CSRF_TRUSTED_ORIGINS|CORS_ALLOWED_ORIGINS|STAGING_DOMAIN)=' .env | sed 's/^/    /'
+grep -E '^(ALLOWED_HOSTS|CSRF_TRUSTED_ORIGINS|CORS_ALLOWED_ORIGINS|STAGING_DOMAIN|PUBLIC_IP)=' .env | sed 's/^/    /'
 
 # --- Tell the operator what is left -----------------------------------------
 CERT_EMAIL=$(grep -E '^CERTBOT_EMAIL=' .env | head -1 | cut -d= -f2- || true)
 
 cat <<EOF
 
-$(printf '\033[1;34m==>\033[0m') Not done automatically — run these yourself (docs/DOMAIN_HTTPS_PLAN.md §9):
+$(printf '\033[1;34m==>\033[0m') Not done automatically — run these yourself (docs/DOMAIN_HTTPS_PLAN.md §9,
+  docs/HTTPS_IP_CERTIFICATE.md for the IP cert):
 
-  The hostname changed, so the existing certificate no longer matches it and a
-  NEW one must be issued. Let's Encrypt counts certificates against the shared
-  sslip.io domain (50/week for everyone using the service), so this stays a
-  deliberate step. Dry-run first.
+  Both the hostname and the IP changed, so BOTH certificates need reissuing —
+  the old ones no longer match. Let's Encrypt counts hostname certs against
+  the shared sslip.io domain (50/week for everyone using the service) and IP
+  certs against the IP itself (50/week, not shared) — issuance stays a
+  deliberate step either way. Dry-run first.
 
-  # 1. Serve the ACME challenge (no certificate exists for the new name yet)
+  # 1. Serve the ACME challenge (no certificate exists for the new name/IP yet)
   docker compose -f docker-compose.yml -f docker-compose.acme.yml up -d frontend
 
-  # 2. Check it would work, THEN issue for real
-  sudo certbot certonly --webroot -w /var/www/certbot -d ${NEW_DOMAIN} --dry-run
-  sudo certbot certonly --webroot -w /var/www/certbot -d ${NEW_DOMAIN} \\
+  # 2. Hostname cert — check it would work, THEN issue for real
+  sudo /opt/certbot-venv/bin/certbot certonly --webroot -w /var/www/certbot -d ${NEW_DOMAIN} --dry-run
+  sudo /opt/certbot-venv/bin/certbot certonly --webroot -w /var/www/certbot -d ${NEW_DOMAIN} \\
       --agree-tos -m ${CERT_EMAIL:-<YOUR_EMAIL>} --non-interactive
 
-  # 3. Back to HTTPS
+  # 3. IP cert — same pattern, mandatory shortlived profile (~160h lifetime)
+  sudo /opt/certbot-venv/bin/certbot certonly --webroot -w /var/www/certbot --ip-address ${NEW_IP} \\
+      --preferred-profile shortlived --staging --agree-tos --register-unsafely-without-email --non-interactive
+  sudo /opt/certbot-venv/bin/certbot certonly --webroot -w /var/www/certbot --ip-address ${NEW_IP} \\
+      --preferred-profile shortlived --agree-tos --register-unsafely-without-email --non-interactive
+
+  # 4. Back to HTTPS (renders both server blocks — see deploy/nginx/staging-https.conf.template)
   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
 
-  # 4. Verify — check the API, not just the home page
+  # 5. Verify — check the API, not just the home page, on BOTH origins
   curl -sS https://${NEW_DOMAIN}/api/health/
+  curl -sS https://${NEW_IP}/api/health/
 
   Also update the security group's SSH rule if YOUR workstation IP changed.
+
+  Old-IP certificate lineages (both the hostname's and the previous IP's) are
+  orphaned by this — recover-staging.sh sweeps them after the container
+  recreate; safe to leave alone in the meantime, they just stop renewing.
 
   To roll back: cp ${BACKUP} .env && docker compose up -d backend
 EOF

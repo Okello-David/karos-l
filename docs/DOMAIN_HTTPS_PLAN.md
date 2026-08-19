@@ -467,6 +467,16 @@ superuser all deleted. Only `karosadmin` remains.
 
 ---
 
+## 12a. Addendum — bare-IP HTTPS added (2026-08-19)
+
+**This doc covers the sslip.io-hostname path. The bare EC2 IP now ALSO gets a real, trusted certificate,
+running alongside this one — full detail in `docs/HTTPS_IP_CERTIFICATE.md`.** Nothing in this document
+changed as a result: same nginx template file (a second `server{}` block was added, this one's block only
+gained an explicit `server_name`), same `docker-compose.https.yml` (one more env var), same certbot host
+(now a modern venv install rather than the dnf package, used for both certs), same security group. The
+`sslip.io` rate-limit risk row below is unaffected — IP certs rate-limit per-IP, not against the shared
+`sslip.io` domain.
+
 ## 12. Remaining risks
 
 | Risk | Severity | Mitigation |

@@ -1,15 +1,31 @@
 # KarosL staging — stage 2 of 2: TLS termination + HTTP->HTTPS redirect.
 #
-# Applied only AFTER a certificate exists at
-# /etc/letsencrypt/live/${STAGING_DOMAIN}/ — nginx will not start otherwise.
+# Applied only AFTER certificates exist at /etc/letsencrypt/live/${STAGING_DOMAIN}/
+# and /etc/letsencrypt/live/${PUBLIC_IP}/ — nginx will not start otherwise.
 #
-# ${STAGING_DOMAIN} is substituted at container start by the nginx image's
-# entrypoint. NGINX_ENVSUBST_FILTER=STAGING_DOMAIN restricts substitution to
-# that one name so nginx's own $host / $uri / $scheme survive untouched. This
-# is why the real staging hostname never has to be committed to this repo.
+# ${STAGING_DOMAIN} and ${PUBLIC_IP} are substituted at container start by the
+# nginx image's entrypoint. NGINX_ENVSUBST_FILTER=STAGING_DOMAIN|PUBLIC_IP
+# restricts substitution to those two names so nginx's own $host / $uri /
+# $scheme survive untouched. This is why the real staging hostname/IP never
+# have to be committed to this repo.
 #
 # The application location blocks are copied verbatim from frontend/nginx.conf;
 # only the listen/TLS lines and the redirect server are new.
+#
+# TWO certs, two server blocks on 443, picked apart deliberately:
+#   - ${STAGING_DOMAIN}: a normal ~90-day Let's Encrypt cert, picked via SNI.
+#   - ${PUBLIC_IP}: a Let's Encrypt IP-address certificate (GA 2026-01-15,
+#     mandatory "shortlived" profile, ~160h/6.67-day lifetime — see
+#     docs/HTTPS_IP_CERTIFICATE.md). Marked `default_server`, NOT just
+#     SNI-matched: SNI is unreliable for bare-IP connections (RFC 6066
+#     forbids IP literals as the SNI hostname; some clients omit SNI
+#     entirely when connecting to a literal IP), so a browser hitting
+#     https://<IP> directly must fall through to this block rather than
+#     depend on SNI matching. It still declares server_name too, for the
+#     minority of clients that do send the IP as SNI.
+# The two blocks are kept directive-for-directive identical (TLS params, all
+# location blocks) except server_name/default_server and the two
+# ssl_certificate* lines, so the two access paths never drift apart.
 
 # ---------------------------------------------------------------------------
 # Port 80: ACME challenges and health, everything else redirected to HTTPS.
@@ -46,7 +62,7 @@ server {
 server {
     listen 443 ssl;
     http2 on;
-    server_name _;
+    server_name ${STAGING_DOMAIN};
     root /usr/share/nginx/html;
     index index.html;
 
@@ -72,6 +88,58 @@ server {
     # request as secure via SECURE_PROXY_SSL_HEADER (backend/config/settings.py).
     # Without that setting Django would 301 to HTTPS on an already-HTTPS
     # request, producing an infinite redirect loop.
+    location /api/ {
+        proxy_pass http://backend:8000/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /admin/ {
+        proxy_pass http://backend:8000/admin/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /static/ {
+        proxy_pass http://backend:8000/static/;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Port 443, bare IP: same application, served on a Let's Encrypt IP-address
+# certificate. default_server because SNI cannot be relied on for a literal
+# IP connection (see the file header) — this is the block that wins when a
+# browser has no SNI to offer at all.
+# ---------------------------------------------------------------------------
+server {
+    listen 443 ssl default_server;
+    http2 on;
+    server_name ${PUBLIC_IP};
+    root /usr/share/nginx/html;
+    index index.html;
+
+    ssl_certificate     /etc/letsencrypt/live/${PUBLIC_IP}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${PUBLIC_IP}/privkey.pem;
+
+    ssl_protocols             TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache         shared:SSL:10m;
+    ssl_session_timeout       1d;
+    ssl_session_tickets       off;
+
+    location /healthz {
+        default_type text/plain;
+        return 200 "ok";
+    }
+
     location /api/ {
         proxy_pass http://backend:8000/api/;
         proxy_set_header Host $host;

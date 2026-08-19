@@ -1,5 +1,118 @@
 # Project State
 
+## S3 backup: explicit encryption check + monitoring-event structure (2026-08-19)
+
+Same day's fourth pass, closing two specific gaps found by comparing the S3 backup work below against a
+fuller brief: `backup-to-s3.sh` now checks the uploaded object's actual `ServerSideEncryption` field (not
+just the bucket's default-encryption policy) and prints `encrypted: AES256` on success; both
+`backup-to-s3.sh` and `restore-from-s3.sh` now emit `[EVENT] BACKUP_STARTED/SUCCEEDED/FAILED`,
+`UPLOAD_FAILED`, and `RESTORE_TEST_SUCCEEDED/FAILED` markers — verified on both the success path and a
+deliberately-broken failure path (a nonexistent bucket correctly produced `UPLOAD_FAILED`, not a silent
+partial success). No CloudWatch resources created — this only prepares the log structure a future setup
+would consume. Full reference: `docs/S3_BACKUP_ARCHITECTURE.md` §§11–12.
+
+## S3 backup restructure + restore automation (2026-08-19)
+
+Same day's third pass, after the HTTPS-via-IP work below. The S3 backup mechanism it verified already existed and
+worked; this pass closed the two real gaps found while reviewing it against a fuller backup-architecture
+brief: **no restore automation existed**, and the object layout didn't separate database backups from any
+future application-upload path.
+
+- **New `scripts/restore-from-s3.sh`.** Automates the disposable-database restore procedure already
+  documented in `docs/DEVOPS.md` §12. It cannot reach the live database under any flag — it hard-refuses if
+  `--target-db` matches the live `POSTGRES_DB` (read from the container's own environment) or `postgres`.
+  Verified for real: a fresh backup was taken, restored via the script, row counts (3 properties / 4
+  sections / 12 units / 17 occupants / 15 occupancies / 14 payments / 14 receipts) matched the live database
+  exactly, the disposable database was confirmed dropped, and the live database's own counts were unchanged
+  before and after.
+- **Key layout restructured.** New backups now go to `database/karosl_db_<date>_<time>.sql.gz` (was
+  `pg_dump/<year>/karosl-staging-<date>-<time>.sql.gz`). Old objects were left exactly where they are — nothing
+  deleted or migrated.
+- **Tiered retention added.** Daily backups still expire at 30 days; a new monthly tier
+  (`database/monthly/<year>-<month>.sql.gz`, one S3-to-S3 copy per calendar month, no second `pg_dump`) is
+  kept for 400 days.
+- **IAM policy extended** to the new `database/*` prefix (read+write) while keeping `pg_dump/*` read-only
+  for historical restores — still no `s3:*`, no `s3:DeleteObject`, no other buckets.
+- Bucket security (versioning, SSE-S3, all four Public Access Block flags) re-confirmed unchanged after the
+  lifecycle edit. Both `verify-staging.sh` targets stayed 12/12 throughout — the running application was
+  never touched by any of this.
+- Full reference: `docs/S3_BACKUP_ARCHITECTURE.md`.
+
+## HTTPS via bare EC2 IP (2026-08-19)
+
+Same day's second pass, after the Live Pilot audit below. `https://<EC2_PUBLIC_IP>` now shows a real,
+browser-trusted certificate — Let's Encrypt IP-address certificates only went GA 2026-01-15, so this wasn't
+achievable before. **The existing sslip.io-hostname HTTPS path was kept running unchanged, not replaced** —
+two independent `server{}` blocks now share port 443, picked via `default_server` (bare-IP/no-SNI
+connections) and SNI (hostname connections) respectively.
+
+- **A real blocker, found and worked around, not assumed away.** The instance's dnf-packaged certbot
+  (2.6.0) predates IP-cert support entirely. Installing a modern certbot (5.7.0) via `pip` initially still
+  resolved to 4.2.0 — traced to AL2023's system Python being 3.9, one below certbot 5.x's `>=3.10`
+  requirement. Installing the official `python3.12` package and rebuilding the venv against it fixed this.
+  Renewal was cut over to the new binary via a systemd drop-in override, not by touching the dnf package's
+  files (which a future `dnf update` could silently revert, or which owns the working timer units).
+- **A pre-existing gap, found rather than caused.** `/etc/letsencrypt/renewal-hooks/deploy/reload-karosl-nginx.sh`
+  already existed from 2026-07-31 and already reloads nginx after any cert's renewal — closes what would
+  otherwise have been a real "nginx never picks up a renewed cert" problem for both certificates, not just
+  the new one.
+- **Renewal proven, not just configured.** `certbot renew --cert-name <IP> --force-renewal` was run for
+  real rather than waiting for the ~6-day natural expiry: succeeded, the deploy-hook fired, and
+  `verify-staging.sh` was green immediately after with zero manual restart.
+- **Full browser smoke test against the bare-IP origin**, with a fresh login (cookies don't carry over
+  between origins): login through Property Explorer, zero console errors (no mixed content, no CORS, no
+  CSRF), `AUDIT-TEST`-prefixed records archived afterward, dashboard back at the exact pre-test baseline.
+- **`scripts/recover-staging.sh` extended and tested for real** against the already-running instance so a
+  *future* IP change repairs both certificates automatically, not just the hostname one — including a real
+  bug caught and fixed during that test: the orphan-sweep regex needed to exclude the current IP as well as
+  the current hostname, or it would have deleted the certificate it had just issued.
+- Full reference: `docs/HTTPS_IP_CERTIFICATE.md`.
+
+## Live Pilot phase entered (2026-08-19)
+
+**Staging now holds real accommodation records and stays running continuously.** This was a hardening
+audit, not a build — most of what "harden for real data" would ask for already existed from the 2026-08-01
+sprint below (verified S3 backups, one-command recovery, HTTPS). The audit's job was to confirm those
+mechanisms actually hold up under the live-pilot bar and to change the one thing that hadn't been decided
+yet: **the instance no longer stops between sessions.**
+
+- **Data persistence proven, not assumed.** Row counts (2 properties, 3 sections, 11 units, 16 occupants, 14
+  occupancies, 13 payments, 13 receipts) matched exactly before and after a full `db`/`backend`/`frontend`
+  container restart — confirms the data lives on the `postgres_data` named volume, not container-ephemeral
+  storage.
+- **Backup verified end to end, not just installed.** `backup-to-s3.sh --dry-run` then a real run both
+  succeeded (21 tables, 21 data blocks). More importantly: `karosl-backup.timer` had not fired since
+  2026-08-01 (the instance was off the whole time), and `Persistent=true` caught up correctly — it fired
+  ~4 minutes after this boot without prompting, confirmed via `journalctl`, with `systemctl --failed`
+  showing zero failed units. This is the exact scenario `Persistent=true` was added for, and it worked.
+- **Smoke-tested live, in a browser, against the real HTTPS URL** — login, dashboard, create property →
+  section → unit, register occupant, assign occupancy, record payment, generate receipt, Property Explorer.
+  All worked. Test records were prefixed `AUDIT-TEST` and archived afterward (checked out → occupant
+  archived → unit archived → section archived → property archived); the dashboard returned to the exact
+  pre-test baseline (14/24 beds, 16 active occupants, UGX 4,620,000 outstanding). **The payment and its
+  receipt (`RCP-2026-00014`) remain permanently** — KarosL has no delete path for financial records by
+  design, so this is one real `AUDIT-TEST`-tagged payment now in staging's history, clearly labeled as such.
+- **Two findings worth tracking, neither blocking:** (1) an occupant named "Verify Tester" from the
+  2026-07-31 verification pass was never cleaned up and is baked into what this doc calls the "known-good
+  baseline" — it's real leftover test data, just not from this pass, and not removed today since deleting
+  someone else's data wasn't this audit's call to make unilaterally. (2) The Administration → Units filter:
+  selecting a property with "All Sections" does not actually filter the units table by property (it lists
+  every property's units regardless); selecting a specific section filters correctly. Minor, cosmetic, not
+  data-affecting.
+- **AWS footprint unchanged and clean:** no RDS, NAT Gateway, ALB, or extra EBS/EIP for KarosL. The only
+  RDS instance and idle Elastic IP on the account (`dc-intern-postgres`, `16.192.137.239`) belong to an
+  unrelated project sharing the account/budget — not KarosL's to fix, flagged for awareness only.
+- **Logs clean.** No repeated DB-connection errors, no unhandled exceptions since today's restart. The only
+  `ERROR`-level entries found were historical `DisallowedHost` errors from past IP churn (self-resolving,
+  already understood) and routine internet background-noise scans (`/api/.env`, `/api/graphql`, etc.), all
+  correctly answered with 404/401 — no data exposed.
+
+**What changes now that this is continuous, not intermittent:** the Elastic-IP/domain gap (below) goes
+dormant while the instance stays up — no more IP churn if it is never restarted — but stays exactly as
+urgent as before for the day it *is* restarted (a dependency bump, an instance-type change, an AWS
+maintenance event). Do not treat "it hasn't broken since going live" as "it's fixed." The purchased domain
+is still the real fix, still pending client budget sign-off.
+
 ## Staging stopped, with one-command recovery (2026-08-01)
 
 **Staging is STOPPED** (compute billing off) after the demo-readiness work, and restarting it is now a

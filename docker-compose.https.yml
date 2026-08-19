@@ -1,13 +1,20 @@
 # KarosL staging — HTTPS stage 2 of 2: TLS termination and secure Django flags.
 #
-# Apply only AFTER a Let's Encrypt certificate exists for ${STAGING_DOMAIN}:
+# Apply only AFTER Let's Encrypt certificates exist for ${STAGING_DOMAIN} AND
+# ${PUBLIC_IP}:
 #
 #   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
 #
-# Requires STAGING_DOMAIN in the server .env (never committed), e.g.
+# Requires STAGING_DOMAIN and PUBLIC_IP in the server .env (never committed):
 #   STAGING_DOMAIN=app.example.com
+#   PUBLIC_IP=203.0.113.10
 #
-# See docs/DOMAIN_HTTPS_PLAN.md for the full runbook and rollback.
+# PUBLIC_IP serves the bare-IP access path on its own Let's Encrypt IP-address
+# certificate (short-lived, ~160h — see docs/HTTPS_IP_CERTIFICATE.md), kept
+# alongside STAGING_DOMAIN's normal ~90-day cert rather than replacing it.
+#
+# See docs/DOMAIN_HTTPS_PLAN.md and docs/HTTPS_IP_CERTIFICATE.md for the full
+# runbook and rollback.
 
 services:
   frontend:
@@ -17,10 +24,11 @@ services:
       - "443:443"
     environment:
       # Substituted into the nginx template at container start. The filter
-      # limits envsubst to this one variable so nginx's own $host/$uri/$scheme
-      # are not replaced with empty strings.
+      # limits substitution to these two variables so nginx's own
+      # $host/$uri/$scheme are not replaced with empty strings.
       STAGING_DOMAIN: ${STAGING_DOMAIN:?set STAGING_DOMAIN in .env}
-      NGINX_ENVSUBST_FILTER: STAGING_DOMAIN
+      PUBLIC_IP: ${PUBLIC_IP:?set PUBLIC_IP in .env}
+      NGINX_ENVSUBST_FILTER: STAGING_DOMAIN|PUBLIC_IP
     volumes:
       - ./deploy/nginx/staging-https.conf.template:/etc/nginx/templates/default.conf.template:ro
       # Mounted whole and at the same path on purpose: live/<domain>/*.pem are

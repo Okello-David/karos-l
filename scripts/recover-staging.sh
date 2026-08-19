@@ -8,31 +8,35 @@
 # WHY THIS EXISTS
 # ---------------
 # The staging instance has no Elastic IP, so its public address changes on every
-# stop/start. The staging hostname is derived from that address, so an IP change
-# breaks three things at once:
+# stop/start. Two independent HTTPS paths are derived from that address — the
+# sslip.io hostname and, since 2026-08-19, a Let's Encrypt IP-address
+# certificate on the bare IP itself (docs/HTTPS_IP_CERTIFICATE.md) — so an IP
+# change breaks BOTH the same way at once:
 #
 #   1. .env origins go stale        -> Django 400s every API call
-#   2. the certificate stops matching the new hostname
-#   3. the previous certificate is orphaned and can never renew again
+#   2. neither certificate matches the new IP/hostname anymore
+#   3. the previous certificates are orphaned and can never renew again
 #
 # Worse, it fails *quietly*. The containers restart automatically with the old
-# hostname still baked into their stored environment, their healthchecks hit
+# hostname/IP still baked into their stored environment, their healthchecks hit
 # localhost and keep passing, and nginx serves the SPA as normal. From the box
 # everything looks healthy while the entire API is down.
 #
-# This has happened three times. The real fix is an Elastic IP or a purchased
-# domain; until then, this script makes the recovery routine rather than a
-# rediscovery.
+# This has happened three times (to the hostname path alone, before the IP
+# path existed). The real fix is an Elastic IP or a purchased domain; until
+# then, this script makes the recovery routine rather than a rediscovery.
 #
 # WHAT IT DOES
 #   1. starts the instance, retrying AWS capacity errors
 #   2. waits for it and reads the new public IP
 #   3. checks the SSH rule still matches your workstation IP
-#   4. repairs the .env origins on the instance
+#   4. repairs the .env origins on the instance (both access paths)
 #   5. issues a certificate for the new hostname, if one does not exist
-#   6. recreates the containers so the new hostname is baked in
-#   7. deletes orphaned certificates -- only after step 6, never before
-#   8. verifies the whole thing from outside
+#   6. issues an IP-address certificate for the new IP, if one does not exist
+#      (shortlived profile — see docs/HTTPS_IP_CERTIFICATE.md)
+#   7. recreates the containers so the new hostname/IP are baked in
+#   8. deletes orphaned certificates of BOTH kinds -- only after step 7, never before
+#   9. verifies the whole thing from outside, on both access paths
 #
 # WHAT IT DOES NOT DO
 #   - allocate an Elastic IP or buy a domain (the actual cures; both deferred)
@@ -69,7 +73,7 @@ for arg in "$@"; do
         --dry-run)  DRY_RUN=true ;;
         --fix-ssh)  FIX_SSH=true ;;
         --no-start) DO_START=false ;;
-        -h|--help)  sed -n '2,45p' "$0"; exit 0 ;;
+        -h|--help)  sed -n '2,50p' "$0"; exit 0 ;;
         *) die "Unknown argument '$arg'. Try --help." ;;
     esac
 done
@@ -149,8 +153,8 @@ if [ -n "$MY_IP" ] && [ "$SSH_CIDR" != "${MY_IP}/32" ]; then
 fi
 
 if [ "$DRY_RUN" = true ]; then
-    log "--dry-run: would now repair origins, issue a certificate for ${DOMAIN} if needed,"
-    printf '    recreate the containers, delete orphaned certificates, and verify.\n\n'
+    log "--dry-run: would now repair origins, issue certificates for ${DOMAIN} and ${IP} if needed,"
+    printf '    recreate the containers, delete orphaned certificates, and verify both access paths.\n\n'
     exit 0
 fi
 
@@ -167,7 +171,9 @@ printf '    connected\n'
 log "Repairing .env origins..."
 remote "cd $REMOTE_DIR && ./scripts/fix-staging-origins.sh" 2>&1 | sed 's/^/    /' || true
 
-# --- 5. Certificate ---------------------------------------------------------
+# --- 5. Certificate (hostname) -----------------------------------------------
+CERTBOT="/opt/certbot-venv/bin/certbot"
+
 if remote "sudo test -f /etc/letsencrypt/live/${DOMAIN}/fullchain.pem" 2>/dev/null; then
     log "Certificate for ${DOMAIN} already exists — skipping issuance."
     printf '    (re-running this script costs no Let'\''s Encrypt quota)\n'
@@ -183,46 +189,83 @@ else
     # domain (50 certificates/week across every user of the service), and
     # failed real attempts count against it.
     printf '    dry run...\n'
-    remote "sudo certbot certonly --webroot -w /var/www/certbot -d ${DOMAIN} --dry-run" 2>&1 \
+    remote "sudo $CERTBOT certonly --webroot -w /var/www/certbot -d ${DOMAIN} --dry-run" 2>&1 \
         | grep -qi "dry run was successful" || die "Certbot dry run failed. Nothing was issued.
 Check that port 80 is open and that ${DOMAIN} resolves to ${IP}."
 
     printf '    issuing...\n'
-    remote "sudo certbot certonly --webroot -w /var/www/certbot -d ${DOMAIN} --agree-tos --register-unsafely-without-email --non-interactive" 2>&1 \
+    remote "sudo $CERTBOT certonly --webroot -w /var/www/certbot -d ${DOMAIN} --agree-tos --register-unsafely-without-email --non-interactive" 2>&1 \
         | grep -E "Successfully received|expires on" | sed 's/^/    /'
 fi
 
-# --- 6. Recreate containers -------------------------------------------------
+# --- 6. Certificate (bare IP) -------------------------------------------------
+# Separate lineage, separate naming scheme (dotted, not dashed — see
+# docs/HTTPS_IP_CERTIFICATE.md), mandatory shortlived profile (~160h). Rate
+# limited per-IP (50/week), NOT shared like the sslip.io domain limit above,
+# so this is safe to re-run even right after a hostname issuance.
+if remote "sudo test -f /etc/letsencrypt/live/${IP}/fullchain.pem" 2>/dev/null; then
+    log "IP-address certificate for ${IP} already exists — skipping issuance."
+else
+    log "Issuing an IP-address certificate for ${IP}..."
+    remote "cd $REMOTE_DIR && docker compose -f docker-compose.yml -f docker-compose.acme.yml up -d frontend" >/dev/null 2>&1
+    sleep 8
+
+    printf '    dry run...\n'
+    remote "sudo $CERTBOT certonly --webroot -w /var/www/certbot --ip-address ${IP} --preferred-profile shortlived --staging --agree-tos --register-unsafely-without-email --non-interactive" >/dev/null 2>&1
+    remote "sudo $CERTBOT delete --cert-name ${IP} --non-interactive" >/dev/null 2>&1 || true
+
+    printf '    issuing...\n'
+    remote "sudo $CERTBOT certonly --webroot -w /var/www/certbot --ip-address ${IP} --preferred-profile shortlived --agree-tos --register-unsafely-without-email --non-interactive" 2>&1 \
+        | grep -E "Successfully received|expires on" | sed 's/^/    /'
+fi
+
+# --- 7. Recreate containers -------------------------------------------------
 # This is the step that actually fixes things. Everything above is undone if
-# the containers keep running with the old hostname in their stored env.
+# the containers keep running with the old hostname/IP in their stored env.
 log "Recreating containers with the HTTPS overlay..."
 remote "cd $REMOTE_DIR && docker compose -f docker-compose.yml -f docker-compose.https.yml up -d" 2>&1 \
     | tail -4 | sed 's/^/    /'
 
-# --- 7. Retire orphaned certificates ---------------------------------------
-# ORDER MATTERS. The old certificate must outlive the old containers: nginx
+# --- 8. Retire orphaned certificates -----------------------------------------
+# ORDER MATTERS. The old certificates must outlive the old containers: nginx
 # refuses to start when ssl_certificate points at a file that does not exist,
-# so deleting it before step 6 would leave the frontend unable to boot.
-log "Removing certificates for hostnames that no longer point here..."
-ORPHANS=$(remote "sudo certbot certificates 2>/dev/null | grep 'Certificate Name:' | awk '{print \$3}' | grep -v '^${DOMAIN}\$'" || true)
+# so deleting them before step 7 would leave the frontend unable to boot.
+#
+# Hostname orphans need explicit deletion or the renewal timer keeps retrying
+# them forever against a domain that no longer resolves here. IP-cert orphans
+# are technically inert once PUBLIC_IP moves on (nothing references the old
+# path), but are swept too for the same reason — no point letting a dead
+# lineage keep consuming renewal-timer cycles and rate-limit budget.
+log "Removing certificates for hostnames/IPs that no longer point here..."
+ORPHANS=$(remote "sudo $CERTBOT certificates 2>/dev/null | grep 'Certificate Name:' | awk '{print \$3}' \
+    | grep -v '^${DOMAIN}\$' | grep -v '^${IP}\$'" || true)
 if [ -n "$ORPHANS" ]; then
     while read -r orphan; do
         [ -n "$orphan" ] || continue
         printf '    deleting %s\n' "$orphan"
-        remote "sudo certbot delete --cert-name ${orphan} --non-interactive" >/dev/null 2>&1 || warn "could not delete $orphan"
+        remote "sudo $CERTBOT delete --cert-name ${orphan} --non-interactive" >/dev/null 2>&1 || warn "could not delete $orphan"
     done <<< "$ORPHANS"
 else
     printf '    none found\n'
 fi
 
-# --- 8. Verify --------------------------------------------------------------
-log "Verifying from outside..."
+# --- 9. Verify ----------------------------------------------------------------
+log "Verifying from outside, on both access paths..."
 sleep 5
-if "${REPO_ROOT}/scripts/verify-staging.sh" "$DOMAIN"; then
+HOSTNAME_OK=true
+IP_OK=true
+"${REPO_ROOT}/scripts/verify-staging.sh" "$DOMAIN" || HOSTNAME_OK=false
+"${REPO_ROOT}/scripts/verify-staging.sh" "$IP" || IP_OK=false
+
+if [ "$HOSTNAME_OK" = true ] && [ "$IP_OK" = true ]; then
     printf '\033[1;32mRecovery complete.\033[0m\n'
     printf '  https://%s   (login: karosadmin)\n' "$DOMAIN"
-    printf '  Remember to stop the instance when you are done — it bills while running.\n\n'
+    printf '  https://%s   (same app, bare-IP path)\n' "$IP"
+    printf '  Staging now stays running continuously during Live Pilot — see docs/PROJECT_STATE.md.\n\n'
 else
-    die "Recovery ran, but verification failed. See the failed checks above.
+    FAILED=""
+    [ "$HOSTNAME_OK" = false ] && FAILED="the hostname path"
+    [ "$IP_OK" = false ] && FAILED="${FAILED:+$FAILED and }the IP path"
+    die "Recovery ran, but verification failed on ${FAILED}. See the failed checks above.
 Logs:  ssh -i $SSH_KEY ${SSH_USER}@${IP} 'cd $REMOTE_DIR && docker compose logs --tail 50'"
 fi
