@@ -1,0 +1,30 @@
+# KarosL staging — point the backend at Amazon RDS instead of the local `db`
+# container.
+#
+# The base docker-compose.yml hardcodes DB_HOST=db and DB_PORT=5432 in its
+# own `environment:` block for the backend service — and an `environment:`
+# value always beats `env_file`, so setting DB_HOST/DB_PORT in .env alone
+# silently does nothing without this override (the exact same class of
+# footgun docker-compose.https.yml's own header already documents for
+# SECURE_SSL_REDIRECT/CSRF_COOKIE_SECURE/SESSION_COOKIE_SECURE). Found the
+# hard way during the RDS cutover itself — see docs/RDS_MIGRATION.md.
+#
+# Apply ONLY when the root .env's DB_HOST actually points at RDS (not "db").
+# Applying this overlay while DB_HOST is unset/db would set DB_HOST to an
+# empty string and break the container-Postgres path — deploy-staging.sh and
+# rollback-staging.sh both gate inclusion on that check, not on this file's
+# mere presence.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml \
+#     -f docker-compose.cloudwatch.yml -f docker-compose.rds.yml \
+#     up -d --no-deps backend
+#
+# ${DB_HOST}/${DB_PORT} are substituted from the root .env at `docker compose`
+# invocation time, same mechanism docker-compose.https.yml already relies on
+# for STAGING_DOMAIN/PUBLIC_IP.
+
+services:
+  backend:
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-5432}

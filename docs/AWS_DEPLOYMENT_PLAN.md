@@ -96,14 +96,28 @@ Provision **one** small EC2 instance (Amazon Linux 2023 or Ubuntu LTS), install 
 
 ### Phase 3 — Move the database to Amazon RDS PostgreSQL
 
-Stand up an **Amazon RDS for PostgreSQL** instance (single-AZ, smallest burstable class, e.g. `db.t4g.micro`, to start). Migrate data out of the container Postgres (`pg_dump` → `pg_restore`/`psql`). Point the backend at RDS by changing **only environment variables** — `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` — and remove the `db` service from the Compose file on EC2. **No application code changes are required**; this is exactly the seam the containerization work was designed around (`docs/DEVOPS.md` §9 step 3).
+**Status: complete.** Migrated 2026-08-19. Full record — instance config, security groups, migration
+steps, data/application verification, backup-tooling changes, rollback, cost — is `docs/RDS_MIGRATION.md`.
+
+Stood up an **Amazon RDS for PostgreSQL** instance (`db.t4g.micro`, Single-AZ, 20 GiB gp3, publicly
+inaccessible). Migrated data out of the container Postgres via `pg_dump` → `psql`
+(`scripts/migrate-to-rds.sh`), verified row-for-row against the source before cutover. Pointed the backend
+at RDS by changing **environment variables only** — `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`,
+`DB_NAME`, `DB_SSLMODE` — **no application code changes to any view, model, or business logic**, matching
+the plan below exactly; the one code change (`backend/config/settings_production.py`, optional `sslmode`
+support) is additive and inert without `DB_SSLMODE` set.
+
+One deviation from "remove the `db` service from the Compose file on EC2": **the container was
+deliberately kept, not removed**, as a rollback safety net for a defined validation window — see
+`docs/RDS_MIGRATION.md` "Old database — when it's safe to remove." Decommissioning it is now a separate,
+future, deliberate step, not bundled into this migration.
 
 - Amazon RDS supports PostgreSQL DB instances and AWS publishes a PostgreSQL getting-started flow (create instance → connect → load data) that maps 1:1 to this phase.
 - RDS gives managed automated backups, point-in-time recovery, and patching that a hand-run container Postgres does not.
 
 **Purpose:** move the one piece of state that genuinely matters (the database) onto managed, durable, backed-up infrastructure. See Task 3 for the Docker-Postgres-vs-RDS tradeoff and when to make this jump.
 
-**Exit criteria:** backend runs against RDS, RDS automated backups enabled and a restore test performed, container Postgres decommissioned.
+**Exit criteria:** backend runs against RDS ✅, RDS automated backups enabled and a restore test performed ✅ (both the RDS automated backup and the independent S3 pipeline, `docs/RDS_MIGRATION.md`), container Postgres decommissioned ⏳ (deliberately deferred — kept as rollback safety net, see above).
 
 ### Phase 4 — Move receipts / backups / media to Amazon S3
 

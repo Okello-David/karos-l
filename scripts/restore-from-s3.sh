@@ -129,10 +129,43 @@ if [ "$LATEST" = true ]; then
 fi
 log "Selected: s3://${BUCKET}/${KEY}"
 
+# --- DB_HOST-aware target: local container, or a remote host (RDS) --------
+# The live database moved to RDS on 2026-08-19 (docs/RDS_MIGRATION.md) but
+# the `db` container is deliberately kept running as a rollback safety net,
+# so its own presence no longer tells us which database is actually live.
+# When .env's DB_HOST is "db" (or unset), everything below behaves exactly
+# as before (local container, peer trust, the container's own POSTGRES_USER).
+# Otherwise every psql call targets DB_HOST over the network instead, using
+# DB_USER/DB_PASSWORD from .env — still executed via the `db` container's own
+# psql binary, just pointed elsewhere. Rolling DB_HOST back to "db" restores
+# the original local-only behavior with no further changes.
+_db_host=$(grep -E '^DB_HOST=' .env 2>/dev/null | head -1 | cut -d= -f2- || true)
+if [ -z "$_db_host" ] || [ "$_db_host" = "db" ]; then
+    REMOTE_DB=false
+    PSQL_CONN=""
+    EXEC_ENV=()
+else
+    REMOTE_DB=true
+    _db_port=$(grep -E '^DB_PORT=' .env | head -1 | cut -d= -f2- || echo 5432)
+    _db_user=$(grep -E '^DB_USER=' .env | head -1 | cut -d= -f2-)
+    _db_password=$(grep -E '^DB_PASSWORD=' .env | head -1 | cut -d= -f2-)
+    [ -n "$_db_user" ] && [ -n "$_db_password" ] \
+        || die "DB_HOST is '${_db_host}' but DB_USER/DB_PASSWORD are not both set in .env."
+    PSQL_CONN="-h '${_db_host}' -p '${_db_port}' -U '${_db_user}'"
+    EXEC_ENV=(-e PGPASSWORD="$_db_password")
+fi
+
 # --- Guardrail: never the live database ------------------------------------
-# Read the live database name from the container's own environment — never
-# from .env, and never trust a flag alone to decide this.
-LIVE_DB=$(docker compose exec -T db sh -c 'echo "$POSTGRES_DB"' < /dev/null 2>/dev/null || true)
+# Local: read the live database name from the container's own environment —
+# never from .env, and never trust a flag alone to decide this. Remote: the
+# container has no opinion about an external host's database name, so the
+# live name is DB_NAME from .env — still never trusted from the --target-db
+# flag alone.
+if [ "$REMOTE_DB" = true ]; then
+    LIVE_DB=$(grep -E '^DB_NAME=' .env | head -1 | cut -d= -f2- || true)
+else
+    LIVE_DB=$(docker compose exec -T db sh -c 'echo "$POSTGRES_DB"' < /dev/null 2>/dev/null || true)
+fi
 if [ -n "$LIVE_DB" ] && [ "$TARGET_DB" = "$LIVE_DB" ]; then
     die "--target-db '${TARGET_DB}' is the LIVE database. Refusing.
 This script only ever restores into a disposable database it creates itself.
@@ -188,19 +221,30 @@ printf '    %s bytes, %s tables, %s data blocks\n' "$SIZE" "$TABLES" "$COPIES"
 # --- Restore into the disposable database -----------------------------------
 RESTORE_STAGE="create_db"
 log "Creating disposable database '${TARGET_DB}'..."
-docker compose exec -T db sh -c "psql -U \"\$POSTGRES_USER\" -d postgres -c \"CREATE DATABASE ${TARGET_DB};\"" \
-    < /dev/null || die "Could not create ${TARGET_DB}. Does it already exist? Drop it by hand first if so."
+if [ "$REMOTE_DB" = true ]; then
+    docker compose exec -T "${EXEC_ENV[@]}" db sh -c "psql ${PSQL_CONN} -d postgres -c \"CREATE DATABASE ${TARGET_DB};\"" \
+        < /dev/null || die "Could not create ${TARGET_DB}. Does it already exist? Drop it by hand first if so."
+else
+    docker compose exec -T db sh -c "psql -U \"\$POSTGRES_USER\" -d postgres -c \"CREATE DATABASE ${TARGET_DB};\"" \
+        < /dev/null || die "Could not create ${TARGET_DB}. Does it already exist? Drop it by hand first if so."
+fi
 
 RESTORE_STAGE="restore"
 log "Restoring into '${TARGET_DB}'..."
-docker compose exec -T db sh -c "psql -q -U \"\$POSTGRES_USER\" -d ${TARGET_DB}" < "$SQL_FILE" \
-    || die "Restore failed partway through. '${TARGET_DB}' may be in a partial state — drop it by hand:
+if [ "$REMOTE_DB" = true ]; then
+    docker compose exec -T "${EXEC_ENV[@]}" db sh -c "psql -q ${PSQL_CONN} -d ${TARGET_DB}" < "$SQL_FILE" \
+        || die "Restore failed partway through. '${TARGET_DB}' may be in a partial state on ${_db_host} — drop it by hand with psql (DB_PASSWORD from .env, never printed here):
+  DROP DATABASE ${TARGET_DB};"
+else
+    docker compose exec -T db sh -c "psql -q -U \"\$POSTGRES_USER\" -d ${TARGET_DB}" < "$SQL_FILE" \
+        || die "Restore failed partway through. '${TARGET_DB}' may be in a partial state — drop it by hand:
   docker compose exec -T db sh -c 'psql -U \"\$POSTGRES_USER\" -d postgres -c \"DROP DATABASE ${TARGET_DB};\"' < /dev/null"
+fi
 
 # --- Verify expected records --------------------------------------------------
 RESTORE_STAGE="verify_records"
 log "Row counts in '${TARGET_DB}' (compare against docs/PROJECT_STATE.md's known-good baseline):"
-docker compose exec -T db sh -c "psql -U \"\$POSTGRES_USER\" -d ${TARGET_DB} -t -c \"
+COUNT_SQL="
     select 'properties', count(*) from properties_property
     union all select 'sections', count(*) from sections_section
     union all select 'units', count(*) from units_unit
@@ -208,13 +252,28 @@ docker compose exec -T db sh -c "psql -U \"\$POSTGRES_USER\" -d ${TARGET_DB} -t 
     union all select 'occupancies', count(*) from occupancy_occupancy
     union all select 'payments', count(*) from payments_payment
     union all select 'receipts', count(*) from payments_receipt;
-\"" < /dev/null | sed 's/^/    /'
+"
+if [ "$REMOTE_DB" = true ]; then
+    docker compose exec -T "${EXEC_ENV[@]}" db sh -c "psql ${PSQL_CONN} -d ${TARGET_DB} -t -c \"${COUNT_SQL}\"" \
+        < /dev/null | sed 's/^/    /'
+else
+    docker compose exec -T db sh -c "psql -U \"\$POSTGRES_USER\" -d ${TARGET_DB} -t -c \"${COUNT_SQL}\"" \
+        < /dev/null | sed 's/^/    /'
+fi
 
 # --- Cleanup -------------------------------------------------------------------
 RESTORE_STAGE="cleanup"
 if [ "$KEEP" = true ]; then
     warn "Leaving '${TARGET_DB}' in place (--keep). Drop it when done:"
-    printf '  docker compose exec -T db sh -c '\''psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE %s;"'\'' < /dev/null\n' "$TARGET_DB"
+    if [ "$REMOTE_DB" = true ]; then
+        printf '  DROP DATABASE %s;  -- against %s, DB_PASSWORD from .env\n' "$TARGET_DB" "$_db_host"
+    else
+        printf '  docker compose exec -T db sh -c '\''psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE %s;"'\'' < /dev/null\n' "$TARGET_DB"
+    fi
+elif [ "$REMOTE_DB" = true ]; then
+    log "Dropping disposable database '${TARGET_DB}'..."
+    docker compose exec -T "${EXEC_ENV[@]}" db sh -c "psql ${PSQL_CONN} -d postgres -c \"DROP DATABASE ${TARGET_DB};\"" \
+        < /dev/null || warn "Could not drop ${TARGET_DB} — drop it by hand."
 else
     log "Dropping disposable database '${TARGET_DB}'..."
     docker compose exec -T db sh -c "psql -U \"\$POSTGRES_USER\" -d postgres -c \"DROP DATABASE ${TARGET_DB};\"" \

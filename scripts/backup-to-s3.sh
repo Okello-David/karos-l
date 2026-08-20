@@ -126,11 +126,37 @@ chmod 700 "$BACKUP_DIR"
 # `< /dev/null` is mandatory, not decorative: `docker compose exec -T` will
 # otherwise swallow the rest of this script when it is piped or heredoc'd
 # into a shell. Recorded as a real footgun in docs/DEVOPS.md §10.
+#
+# DB_HOST-aware: the live database moved to RDS on 2026-08-19
+# (docs/RDS_MIGRATION.md) but the `db` container is deliberately kept running
+# as a rollback safety net — so "is the db container running" alone can no
+# longer tell this script which database is actually live. When .env's
+# DB_HOST is "db" (or unset), dump the local container exactly as before.
+# Otherwise, dump the remote host over the network — still using the `db`
+# container's own pg_dump binary (version-matched to what created the data),
+# just pointed elsewhere, and reading DB_USER/DB_PASSWORD/DB_NAME (the app's
+# actual, live credentials) rather than the container's own frozen
+# POSTGRES_* values. This is what makes a rollback (DB_HOST back to "db")
+# restore this script's old behavior with no further changes.
 BACKUP_STAGE="dump"
-log "Dumping the database from the 'db' container..."
-docker compose exec -T db sh -c \
-    'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' \
-    < /dev/null > "$OUT"
+_db_host=$(grep -E '^DB_HOST=' .env 2>/dev/null | head -1 | cut -d= -f2- || true)
+if [ -z "$_db_host" ] || [ "$_db_host" = "db" ]; then
+    log "Dumping the database from the 'db' container..."
+    docker compose exec -T db sh -c \
+        'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' \
+        < /dev/null > "$OUT"
+else
+    _db_port=$(grep -E '^DB_PORT=' .env | head -1 | cut -d= -f2- || echo 5432)
+    _db_name=$(grep -E '^DB_NAME=' .env | head -1 | cut -d= -f2-)
+    _db_user=$(grep -E '^DB_USER=' .env | head -1 | cut -d= -f2-)
+    _db_password=$(grep -E '^DB_PASSWORD=' .env | head -1 | cut -d= -f2-)
+    [ -n "$_db_name" ] && [ -n "$_db_user" ] && [ -n "$_db_password" ] \
+        || die "DB_HOST is '${_db_host}' but DB_NAME/DB_USER/DB_PASSWORD are not all set in .env."
+    log "Dumping the database from ${_db_host}:${_db_port} (DB_HOST != db, remote target)..."
+    docker compose exec -T -e PGPASSWORD="$_db_password" db sh -c \
+        "pg_dump -h '${_db_host}' -p '${_db_port}' -U '${_db_user}' -d '${_db_name}' --clean --if-exists" \
+        < /dev/null > "$OUT"
+fi
 chmod 600 "$OUT"
 
 # --- Verify -----------------------------------------------------------------
