@@ -163,6 +163,17 @@ DATABASES = {
     }
 }
 
+if 'sqlite3' not in _db_engine:
+    # connect_timeout/sslmode are psycopg2-only options — sqlite3.connect()
+    # rejects unrecognized kwargs, so this only applies to Postgres.
+    # sslmode unset by default so container Postgres (no TLS listener
+    # configured there) is unaffected. Set DB_SSLMODE=require when DB_HOST
+    # points at RDS — see docs/RDS_MIGRATION.md.
+    DATABASES['default']['OPTIONS'] = {
+        'connect_timeout': 5,
+        **({'sslmode': os.getenv('DB_SSLMODE')} if os.getenv('DB_SSLMODE') else {}),
+    }
+
 # ------------------------------------------------------------------
 # Authentication
 # ------------------------------------------------------------------

@@ -94,6 +94,14 @@ the instance's), access to any other bucket, any bucket-administration action (`
 `pg_dump/*` is read-only now — nothing writes there anymore, but `restore-from-s3.sh` and manual restores
 can still reach historical backups from before the restructure.
 
+**Correction (production-readiness audit, 2026-08-20):** `karosl-staging-backup-role` is not S3-only — it
+also carries a second inline policy, `karosl-cloudwatch-logs-metrics`, added alongside the CloudWatch work
+(`docs/CLOUDWATCH_MONITORING.md`): `logs:CreateLogGroup`/`CreateLogStream`/`PutLogEvents`/
+`DescribeLogStreams` scoped to `arn:...:log-group:/karosl/staging/*`, plus `cloudwatch:PutMetricData`
+(unscoped resource — this action doesn't support resource-level restriction). The role's real scope is
+**S3 write/read (no delete) + CloudWatch Logs/metrics write**, still with no `s3:DeleteObject` and no
+access outside these two purposes — verified via `aws iam list-role-policies` / `get-role-policy`.
+
 ## 4. Backup process
 
 `scripts/backup-to-s3.sh`, run nightly by `karosl-backup.timer` (`deploy/systemd/`, `OnCalendar=*-*-* 02:30:00 UTC`,

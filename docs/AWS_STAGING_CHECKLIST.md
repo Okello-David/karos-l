@@ -15,7 +15,7 @@ Status: **Executed 2026-07-29 — staging is live in `eu-north-1`.** Sections 1�
 > ⛔ **GATE — Section 1 must be fully green before anything in Sections 2–3 is touched.**
 > **No AWS deployment should proceed before budget alerts are configured.** Not the EC2 instance, not the security group, not an Elastic IP, not a test bucket. The budget is the first thing created in the account.
 
-**Scope reminder (original, 2026-07-29):** this was **staging only**. No RDS, no load balancer, no NAT Gateway, no HTTPS, no real tenant data. Production is a later, separate decision (`docs/AWS_DEPLOYMENT_PLAN.md` Phases 3–6). **HTTPS and real tenant data have since arrived** (2026-07-31 and 2026-08-19 respectively) without any of the deferred items — still no RDS, load balancer, or NAT Gateway.
+**Scope reminder (original, 2026-07-29):** this was **staging only**. No RDS, no load balancer, no NAT Gateway, no HTTPS, no real tenant data. Production is a later, separate decision (`docs/AWS_DEPLOYMENT_PLAN.md` Phases 3–6). **HTTPS and real tenant data have since arrived** (2026-07-31 and 2026-08-19 respectively). **RDS has since arrived too** (2026-08-19, same day as the Live Pilot audit below — see `docs/RDS_MIGRATION.md`); load balancer and NAT Gateway remain deliberately absent.
 
 Step-by-step commands for Sections 3–4 live in `docs/AWS_EC2_DEPLOYMENT.md`. This file is the checklist; that file is the runbook.
 

@@ -80,8 +80,10 @@ The RDS master password was generated locally (40 random characters), used once 
 and once to write the server's `.env`, and never appears in any git-tracked file, GitHub Secret, commit,
 or workflow log. It is not the same password the container database uses — a fresh credential for a fresh
 instance, not a carried-over one. Application access stays password-based (matching the app's existing
-model); no IAM database authentication was introduced, and no new IAM policy was needed — the EC2
-instance role (`karosl-staging-backup-role`) remains scoped to S3 only.
+model); no IAM database authentication was introduced, and no new IAM policy was needed for RDS itself — the
+EC2 instance role (`karosl-staging-backup-role`) gained no RDS permissions. It does also carry an inline
+CloudWatch Logs/metrics policy from separate, unrelated work — see `docs/S3_BACKUP_ARCHITECTURE.md` §3 for
+its exact, current scope.
 
 ## Application configuration
 

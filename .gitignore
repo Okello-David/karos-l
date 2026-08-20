@@ -21,6 +21,15 @@ frontend/.env
 # Docker Compose (root-level env for compose services — never commit)
 .env
 
+# SSH key material — never commit
+*.pem
+*_rsa
+*_rsa.pub
+*_ed25519
+*_ed25519.pub
+id_rsa*
+id_ed25519*
+
 # IDE
 .vscode/
 .idea/

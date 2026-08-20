@@ -14,7 +14,7 @@
 # twice.
 #
 # Baselines this protects, previously only ever verified by hand and written
-# into docs/PROJECT_STATE.md: backend 237/237, frontend 45/45, clean build.
+# into docs/PROJECT_STATE.md: backend 257/257, frontend 52/52, clean build.
 
 name: CI
 
@@ -137,7 +137,7 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      # oxlint currently reports 8 pre-existing unused-import/variable
+      # oxlint currently reports 7 pre-existing unused-import/variable
       # warnings and exits 0, so this gates real errors without requiring a
       # cleanup pass first.
       - name: Lint
