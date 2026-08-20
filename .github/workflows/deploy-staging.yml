@@ -1,8 +1,7 @@
 # KarosL — test, build-validate, and deploy the staging environment.
 #
-# This is the one workflow in the repo that DOES have deployment credentials
-# (EC2_HOST/EC2_USER/EC2_DEPLOY_KEY — docs/CI_CD.md). ci.yml deliberately does
-# not: it covers dev/PRs and stays read-only. This workflow covers exactly
+# ci.yml deliberately stays read-only: it covers dev/PRs, runs on
+# GitHub-hosted runners, no deploy credentials. This workflow covers exactly
 # one branch, cloud-deployment, and nothing else — no PRs, no other branches,
 # so a feature branch is never auto-deployed to the live pilot (docs/CI_CD.md
 # "Branch strategy").
@@ -11,12 +10,31 @@
 # failure blocks deployment outright — nothing here ever deploys unverified
 # code.
 #
-# The SSH key used here is a DEDICATED, restricted deploy key — not the
-# operator's own admin key. Its authorized_keys entry on the instance forces
-# it to run exactly one script (scripts/ci-deploy-entrypoint.sh) regardless
-# of what command is requested, so a leaked key's blast radius is "can
-# trigger a deploy," not "arbitrary shell on the box." See docs/CI_CD.md for
-# key generation, installation, and rotation.
+# Deploy runs on a SELF-HOSTED runner (label `karosl-staging`) installed
+# directly on the EC2 instance — added 2026-08-20 after discovering the
+# original SSH-based design could never actually work: the instance's
+# security group only allows SSH from the operator's own /32, and GitHub's
+# hosted runners connect from thousands of dynamic IPs that were never going
+# to be on that allowlist (confirmed by the pipeline's first real run
+# failing at the host-key step). Running the deploy step ON the instance
+# needs no inbound network change at all — the runner polls GitHub
+# outbound. Full record: docs/CI_CD.md.
+#
+# SECURITY INVARIANT — do not weaken this without deliberately re-deciding
+# it: the self-hosted runner (`karosl-staging` label) must NEVER be used by
+# any workflow that can be triggered by a pull_request from a fork —
+# concretely, never by ci.yml. This repo is public; a self-hosted runner
+# reachable from a fork's PR workflow is a remote-code-execution path onto
+# the live pilot instance. deploy-staging.yml is safe because its trigger is
+# `push: branches: [cloud-deployment]` only, with no `pull_request` trigger
+# of any kind — only someone who can already push to cloud-deployment can
+# reach this runner.
+#
+# EC2_DEPLOY_KEY / EC2_USER (the old SSH deploy key and its forced-command
+# entrypoint, scripts/ci-deploy-entrypoint.sh) are no longer used by this
+# workflow as of the self-hosted-runner change, but were deliberately left
+# in place rather than revoked as part of this same pass — see
+# docs/CI_CD.md for the recommendation to retire them separately.
 
 name: Deploy to staging
 
@@ -153,7 +171,10 @@ jobs:
 
   deploy:
     name: Deploy to EC2
-    runs-on: ubuntu-latest
+    # Self-hosted, on the instance itself — see the security invariant in
+    # the file header. Never add any other label/runner here without
+    # re-reading that comment.
+    runs-on: [self-hosted, karosl-staging]
     needs: [backend, frontend, docker]
     # Belt-and-braces alongside `needs:` — GitHub already skips this job if
     # any dependency fails, but being explicit here means a future workflow
@@ -161,33 +182,26 @@ jobs:
     # partial failure" behavior without this condition also being touched.
     if: success()
     steps:
-      - name: Add the EC2 host key to known_hosts
-        # Not a secret — this is what makes the connection authenticate the
-        # SERVER to the client, same information `ssh-keyscan` would print
-        # publicly to anyone who connected. Prevents a silent MITM without
-        # requiring a stored host-key secret.
+      - name: Deploy (runs directly on the instance — no SSH hop needed)
+        # The runner IS the instance, so this is just the same command an
+        # operator would type by hand over SSH, run locally instead.
         run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          cd ~/apps/karosl
+          ./scripts/deploy-staging.sh --pull
 
-      - name: Load the deploy key
-        uses: webfactory/ssh-agent@v0.9.1
-        with:
-          ssh-private-key: ${{ secrets.EC2_DEPLOY_KEY }}
-
-      - name: Deploy (runs the forced-command entrypoint on the instance)
-        # The command requested here is irrelevant beyond "connect" — the
-        # instance's authorized_keys forces scripts/ci-deploy-entrypoint.sh
-        # regardless. Written out anyway so the intent is legible in this
-        # log rather than looking like a no-op connection.
-        run: |
-          ssh "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" \
-            "cd ~/apps/karosl && ./scripts/deploy-staging.sh --pull"
-
-      - name: Smoke test (belt-and-braces, from the runner)
+  smoke-test:
+    name: External smoke test
+    # Deliberately back on a GitHub-hosted runner, not self-hosted — this
+    # step's whole point is verifying reachability from OUTSIDE the
+    # instance, over the real HTTPS path a user actually takes. Running it
+    # on the instance itself would just be a loopback check with extra
+    # steps.
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    steps:
+      - name: Smoke test (from outside the instance, over the real HTTPS path)
         # deploy-staging.sh already health-checks internally before it exits
-        # 0 — this repeats the check from outside the instance, over the
-        # real HTTPS path, the way an actual user reaches the app. `-k`:
+        # 0 — this repeats the check from outside the instance. `-k`:
         # sslip.io/IP certs aside, this only needs to confirm the chain
         # responds correctly, not re-litigate TLS trust (docs/HTTPS_IP_CERTIFICATE.md
         # already covers certificate verification in its own test suite).
