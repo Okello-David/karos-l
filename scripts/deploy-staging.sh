@@ -140,12 +140,20 @@ if grep -qE '^ALLOWED_HOSTS=' .env && ! grep -E '^ALLOWED_HOSTS=' .env | grep -q
     warn "healthcheck will fail permanently even though the app works. See §14."
 fi
 
-# POSTGRES_PASSWORD and DB_PASSWORD must match, or the backend cannot connect.
-pg_pw=$(grep -E '^POSTGRES_PASSWORD=' .env | head -1 | cut -d= -f2- || true)
-db_pw=$(grep -E '^DB_PASSWORD=' .env | head -1 | cut -d= -f2- || true)
-if [ -n "$pg_pw" ] && [ -n "$db_pw" ] && [ "$pg_pw" != "$db_pw" ]; then
-    die "POSTGRES_PASSWORD and DB_PASSWORD differ in .env — the backend will not be able to connect.
+# POSTGRES_PASSWORD and DB_PASSWORD must match only on the container-Postgres
+# path (DB_HOST=db/unset) — POSTGRES_PASSWORD configures that same container,
+# so a mismatch there really would break the connection. Once DB_HOST points
+# at RDS (docs/RDS_MIGRATION.md), DB_PASSWORD is a separate, deliberately
+# different RDS credential — POSTGRES_PASSWORD only still matters for the
+# old container kept running as a rollback safety net, so the two are
+# expected to differ. Reuses the same $_db_host gate as the RDS overlay above.
+if [ -z "$_db_host" ] || [ "$_db_host" = "db" ]; then
+    pg_pw=$(grep -E '^POSTGRES_PASSWORD=' .env | head -1 | cut -d= -f2- || true)
+    db_pw=$(grep -E '^DB_PASSWORD=' .env | head -1 | cut -d= -f2- || true)
+    if [ -n "$pg_pw" ] && [ -n "$db_pw" ] && [ "$pg_pw" != "$db_pw" ]; then
+        die "POSTGRES_PASSWORD and DB_PASSWORD differ in .env — the backend will not be able to connect.
 (Values not printed here on purpose.)"
+    fi
 fi
 
 # --- Optional: update the working tree --------------------------------------
