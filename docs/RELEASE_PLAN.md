@@ -1,5 +1,55 @@
 # Release Plan
 
+## RDS migration — 2026-08-19
+
+PostgreSQL moved from the EC2 `db` container to Amazon RDS (`db.t4g.micro`, Single-AZ, private-only) —
+`docs/AWS_DEPLOYMENT_PLAN.md`'s Phase 3, executed now that real tenant/payment data justifies it. Data
+migrated and verified row-for-row, application cut over via `.env` only, S3 backup/restore tooling proven
+against the new database, old container kept as a rollback safety net. Full record:
+`docs/RDS_MIGRATION.md`.
+
+**One real bug found during the cutover**: `docker-compose.yml` hardcodes `DB_HOST`/`DB_PORT` in the
+backend's own `environment:` block, which beats `env_file` — setting `DB_HOST` in `.env` alone silently did
+nothing, and the first cutover attempt crash-looped the backend for under a minute before being caught and
+fixed with a new, conditionally-applied Compose overlay. No data was at risk — the container database was
+never touched by the attempt.
+
+### Recommendation for the next sprint
+
+Remove the old container/volume once a clean validation window has passed (`docs/RDS_MIGRATION.md`).
+Consider a CloudWatch alarm on RDS free storage/CPU/connections. The purchased-domain item remains the
+other standing item, unrelated to this pass.
+
+---
+
+## Safe CI/CD pipeline — 2026-08-19
+
+`git push` to `cloud-deployment` now tests, build-validates, and deploys automatically — a deliberate
+reversal of `ci.yml`'s original "deployment stays manual" stance, made safe via a dedicated, forced-command
+-restricted SSH key rather than the operator's own credentials. **No registry, no ECS/Fargate, no RDS — same
+Docker Compose architecture, same EC2 instance, just automated.**
+
+**The most important result of this pass wasn't the pipeline — it was catching three real bugs in the
+*existing* manual deploy tooling before they could bite during an actual automated run.** Testing
+`deploy-staging.sh` manually, exactly as documented, dropped staging's HTTPS for several minutes (the script
+never applied the HTTPS/CloudWatch compose overlays — a latent gap, not something this pass introduced).
+Fixed at the root in both `deploy-staging.sh` and the new `rollback-staging.sh`. A second bug (a health
+check that reported success on an unfollowed redirect) was found immediately after while re-verifying the
+first fix. A **third** bug turned up testing `rollback-staging.sh` itself: its dirty-working-tree guard
+flagged harmless untracked files as a reason to refuse. While proving the first fix out, the same HTTPS-drop
+incident recurred a second time — rolling forward landed on the still-unfixed, already-committed version of
+`deploy-staging.sh`, because the fix existed only as an uncommitted local patch at that point. That
+recurrence is the concrete reason this work is committed and pushed promptly rather than left as local
+changes. Full account: `docs/CI_CD.md` §2 and §14, `docs/PROJECT_STATE.md`.
+
+### Recommendation for the next sprint
+
+The purchased domain remains the standing item. New from this pass: consider a lightweight image-registry
+step (even just GHCR, no new AWS spend) once build time on the `t3.micro` becomes a real friction point —
+documented now as the accepted tradeoff (`docs/CI_CD.md` §9), not an urgent gap.
+
+---
+
 ## Basic CloudWatch observability — 2026-08-19
 
 The one genuinely from-scratch build today — every other pass this session audited and extended work that

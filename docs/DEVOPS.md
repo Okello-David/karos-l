@@ -141,7 +141,9 @@ Reviewed what KarosL persists to disk today, ahead of introducing S3:
 
 - `docs/AWS_STAGING_CHECKLIST.md` — account safety gate, EC2 plan, security group rules (incl. why 5432 must never be public), server setup, verification, cleanup.
 - `docs/AWS_EC2_DEPLOYMENT.md` — the command runbook (connect → install Docker → clone → `.env` → build → migrate → superuser → logs → troubleshooting).
-- `scripts/server-setup.sh`, `scripts/deploy-staging.sh`, `scripts/docker-logs.sh` — optional helpers.
+- `scripts/server-setup.sh`, `scripts/deploy-staging.sh`, `scripts/docker-logs.sh` — optional helpers, though
+  `deploy-staging.sh` is no longer *only* a manual helper — since 2026-08-19 it's also what CI runs
+  automatically on push to `cloud-deployment`. Full pipeline reference: `docs/CI_CD.md`.
 
 > ⛔ **No AWS deployment proceeds before an AWS Budget with email alerts is configured.** See `docs/AWS_DEPLOYMENT_PLAN.md`.
 
@@ -151,7 +153,7 @@ Beyond staging:
 
 1. Push `backend`/`frontend` images to a registry (Amazon ECR).
 2. ~~Get backups off the instance~~ — **done for staging (2026-08-01)**: `scripts/backup-to-s3.sh` plus a systemd timer ships a verified nightly `pg_dump` to a private, versioned, lifecycle-managed S3 bucket using an EC2 instance role (no AWS keys on the box). See §12. **Still open:** moving `BackupService`'s own `backend/backups/*.json` exports to S3 (swap `BackupService.BACKUP_DIR` for an S3-backed storage backend — the read/write call sites are already isolated to `apps/backup/services.py`, so this is a contained change).
-3. Replace the local Postgres container with Amazon RDS (PostgreSQL) — no application code changes needed, only `DB_HOST`/`DB_PORT`/credentials via env vars, exactly as designed here.
+3. ~~Replace the local Postgres container with Amazon RDS (PostgreSQL)~~ — **done (2026-08-19)**: only `DB_HOST`/`DB_PORT`/credentials changed via env vars, exactly as designed here. The container itself is deliberately still running as a rollback safety net, not yet decommissioned. See `docs/RDS_MIGRATION.md`.
 4. Run the migrate-on-start entrypoint step as a one-shot ECS task (or equivalent) instead of every replica's container start, ahead of scaling `backend` beyond one instance.
 5. ~~Terminate TLS~~ — **done for staging (2026-07-31)** at the frontend nginx with Let's Encrypt, not at a load balancer, which keeps the no-ALB cost guardrail intact. An ALB with ACM only becomes relevant at Phase 6, if multi-instance scaling ever does. See `docs/DOMAIN_HTTPS_PLAN.md`.
 6. ~~Add a CI pipeline~~ — **done 2026-08-01** (`.github/workflows/ci.yml`): three parallel jobs running the backend suite on a SQLite/PostgreSQL matrix, the frontend lint/test/build, and a `buildx bake` of both images from a clean checkout. Triggers on pushes to `dev`/`cloud-deployment` and on every pull request. **Still open:** pushing images to ECR on merge, which is the part that needs AWS credentials in the repo and is therefore a separate, deliberate decision.
@@ -290,7 +292,12 @@ curl -s localhost/api/health/                                  # liveness + DB c
 `[EVENT]` log markers both scripts emit for future CloudWatch monitoring:
 `docs/S3_BACKUP_ARCHITECTURE.md`.** This section stays the quick-reference/manual-procedure version.
 
-Staging runs PostgreSQL as a container with its data on the `postgres_data` named volume. That volume survives `docker compose down` and an EC2 reboot, but **not** `docker compose down -v` and **not** instance termination. Until RDS arrives (Phase 3), `pg_dump` is the whole disaster-recovery story — so it needs to be a habit, not a plan.
+**Since 2026-08-19, the live database is Amazon RDS** (`docs/RDS_MIGRATION.md`), with RDS's own automated
+backups on top of the mechanisms below. The `db` container and its `postgres_data` volume are still
+running as a rollback safety net (data frozen at the pre-migration point) but are no longer what the
+application writes to — `pg_dump` against RDS, not the container, is now the live disaster-recovery story.
+The container's own volume still survives `docker compose down` and an EC2 reboot, but **not**
+`docker compose down -v` and **not** instance termination, if it's ever removed.
 
 Two independent mechanisms exist; they are not interchangeable:
 

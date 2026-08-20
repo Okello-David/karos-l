@@ -2,6 +2,72 @@
 
 ## [Unreleased]
 
+### Added — Amazon RDS PostgreSQL migration (2026-08-19)
+- **New RDS instance `karosl-staging-postgres`**: PostgreSQL 16.14, `db.t4g.micro`, Single-AZ, 20 GiB gp3
+  (autoscaling to 30), storage-encrypted, deletion protection enabled, publicly inaccessible. New security
+  group `karosl-rds-sg`, ingress TCP 5432 from the EC2 app's security group only — no `0.0.0.0/0`. New DB
+  subnet group across two AZs.
+- **New `scripts/migrate-to-rds.sh`**: one-time dump/restore/verify migration tool, reusing
+  `backup-to-s3.sh`'s dump-verification pattern. Row counts for all 9 record types confirmed identical
+  between source and RDS before cutover.
+- **`backend/config/settings_production.py`**: additive `DB_SSLMODE` support, inert without the env var.
+  Deployed ahead of the data cutover.
+- **New `docker-compose.rds.yml`** overlay, overriding `DB_HOST`/`DB_PORT` for the backend service — found
+  necessary when the first cutover attempt crash-looped the backend, because `docker-compose.yml`'s base
+  `environment:` block hardcodes both and beats `env_file`. `deploy-staging.sh`/`rollback-staging.sh`
+  updated to include this overlay only when `.env`'s `DB_HOST` genuinely points away from `db`.
+- **`scripts/backup-to-s3.sh` and `scripts/restore-from-s3.sh` made `DB_HOST`-aware**: both previously
+  hardcoded operating against the local `db` container; since that container is deliberately kept running
+  as a rollback safety net post-migration, its presence alone could no longer signal which database is
+  live. Both now dump/restore over the network when `DB_HOST` points at RDS, still via the container's own
+  `pg_dump`/`psql` binaries. Both run for real against RDS post-cutover: backup landed and verified
+  encrypted in S3; restore into a disposable database on RDS matched the known-good row counts.
+- **AWS Budget raised from $5 to $30/month** (account-wide, shared with an unrelated project) before RDS
+  was created — the $5 ceiling was already breached ($9.37 actual spend).
+- New `docs/RDS_MIGRATION.md`. `docker-compose.yml`'s `db` service and the old container/volume are kept,
+  not removed, as a rollback safety net for a defined validation window.
+
+### Added — Safe CI/CD pipeline (2026-08-19)
+- **New `.github/workflows/deploy-staging.yml`**: `push` to `cloud-deployment` only (never PRs, never other
+  branches) → backend tests (SQLite+PostgreSQL) → frontend lint/test/build → Docker build validation → (all
+  must pass via `needs:`) → SSH deploy → external smoke test. `concurrency: group: staging-deploy,
+  cancel-in-progress: false` — only one deploy at a time, queued not cancelled.
+- **`ci.yml`**: `cloud-deployment` removed from its trigger (now `dev` + PRs only) so the same push doesn't
+  run the test suite twice across two workflows.
+- **Dedicated, forced-command-restricted SSH deploy key** — not the operator's admin key. Its
+  `authorized_keys` entry (`command="...ci-deploy-entrypoint.sh",no-pty,...`) means whatever a client
+  requests, sshd runs the entrypoint instead; a leaked key's blast radius is "trigger a deploy," not
+  "arbitrary shell." New `scripts/ci-deploy-entrypoint.sh`. Private key piped straight from a scratch file
+  into `gh secret set`, never printed. New GitHub Secrets: `EC2_HOST`, `EC2_USER`, `EC2_DEPLOY_KEY` — exactly
+  these three, confirmed via `gh secret list`.
+- **Three real bugs found and fixed during manual pre-CI testing** (the entire point of testing manually
+  before enabling automation): (1) `scripts/deploy-staging.sh` never applied the HTTPS/CloudWatch compose
+  overlays — running it as previously documented dropped port 443 on the live pilot for several minutes,
+  caught by an external check and fixed immediately, then fixed at the root with a `COMPOSE_FILES`
+  auto-detection used for every `docker compose` call in both `deploy-staging.sh` and the new
+  `rollback-staging.sh`; (2) the internal health check hit plain HTTP, which 301-redirects to HTTPS under
+  the overlay, and `curl -f` doesn't treat a 301 as failure — fixed by checking response content instead of
+  exit code, matching `scripts/verify-staging.sh`'s existing correct pattern; (3) `rollback-staging.sh`'s
+  dirty-working-tree guard used `git status --porcelain`, which flags harmless untracked files the same as
+  real uncommitted changes, even though `git checkout` never touches untracked files — fixed to check
+  tracked-file modifications specifically.
+- **The port-443 incident from bug (1) recurred a second time** while testing "roll forward" after a
+  rollback: checking out `cloud-deployment` and re-running `deploy-staging.sh` restored the still-unfixed,
+  already-committed version of the script, since the fix existed only as an uncommitted local patch at that
+  point. Same immediate restoration; the recurrence itself is the concrete reason this pass is committed and
+  pushed promptly rather than left as local changes. Full log: `docs/CI_CD.md` §14.
+- **`scripts/deploy-staging.sh` extended** (not rewritten): branch verification (refuses to deploy off
+  `cloud-deployment` without an explicit `--branch=` override), a pre-deploy backup via the existing
+  `scripts/backup-to-s3.sh` (`--no-backup` to skip), an explicit visible migration step (redundant with the
+  entrypoint's own automatic migration, but gives CI logs a clearly-labeled section), and a deploy-history
+  record (`~/.karosl-deploy-history`) for rollback to read.
+- **New `scripts/rollback-staging.sh`**: reads the previous known-good commit from the deploy history (or an
+  explicit `--to=<sha>`), checks it out, rebuilds, restarts, verifies. Never touches the database or
+  volumes; explicitly does not attempt automated migration downgrades — a documented limitation of
+  code-only rollback (no container registry, per this session's own cost/complexity constraints), not a
+  silently-ignored gap.
+- New `docs/CI_CD.md`. No RDS, ECS/Fargate, container registry, or other new AWS service introduced.
+
 ### Added — Basic CloudWatch observability (2026-08-19)
 - **3 CloudWatch Logs groups**, 14-day retention: `/karosl/staging/django` (Django's existing WARNING+
   `karosl.log`), `/karosl/staging/nginx` (frontend container stdout via Docker's `awslogs` logging driver,

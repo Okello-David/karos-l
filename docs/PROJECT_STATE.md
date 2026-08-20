@@ -1,5 +1,77 @@
 # Project State
 
+## RDS migration: PostgreSQL moved from the EC2 container to Amazon RDS (2026-08-19)
+
+Same day's seventh pass, and the one `docs/AWS_DEPLOYMENT_PLAN.md` has called "Phase 3" since the plan was
+written — deferred until "the data's value justifies the cost." With real tenant/payment data live since
+this morning's Live Pilot audit, that trigger was pulled. Full record: `docs/RDS_MIGRATION.md`.
+
+- **New RDS instance `karosl-staging-postgres`**: PostgreSQL 16.14 (exact match to the container's
+  version), `db.t4g.micro`, Single-AZ, 20 GiB gp3 (autoscaling to 30), publicly inaccessible, storage
+  encrypted, deletion protection on. New security group `karosl-rds-sg` allows inbound 5432 **only** from
+  the EC2 app's own security group — no `0.0.0.0/0` anywhere.
+- **Data migration verified row-for-row before cutover**: `scripts/migrate-to-rds.sh` (new) dumped the live
+  container database, restored it into RDS over the network, and diffed row counts for all 9 record types
+  (properties, sections, units, occupants, occupancies, payments, receipts, audit logs, users) — identical
+  on both sides. Did not accept exit code 0 alone as proof.
+- **A real bug found during the cutover itself**: the first attempt crash-looped the backend — Django kept
+  connecting to the local `db` container instead of RDS, because `docker-compose.yml`'s base file hardcodes
+  `DB_HOST`/`DB_PORT` in the backend's own `environment:` block, which beats `env_file`. Recovered in under
+  a minute (restored the pre-cutover `.env`, restarted backend — the container database was never touched).
+  Fixed at the root with a new `docker-compose.rds.yml` overlay, applied by `deploy-staging.sh`/
+  `rollback-staging.sh` only when `.env`'s `DB_HOST` genuinely points away from `db`.
+- **The recurring S3 backup/restore scripts needed a real fix, not just new config**: both hardcoded
+  dumping/restoring against the local `db` container, which — kept running as a deliberate rollback safety
+  net — would have caused the nightly backup to silently keep saving frozen, pre-migration data forever.
+  Both scripts are now `DB_HOST`-aware, and both were run for real against RDS after the fix: a live backup
+  landed in S3, and a live restore into a disposable database on RDS itself matched the known-good row
+  counts.
+- **Old container/volume kept, not deleted**, as a rollback safety net for a validation window — see
+  `docs/RDS_MIGRATION.md` for the recommended removal timing.
+- **Budget raised from $5 to $30/month** before RDS was created — the account's shared budget was already
+  breached ($9.37 actual against a $5 ceiling) and gave no real signal for this decision.
+
+## Safe CI/CD pipeline: git push → tests → build → deploy → smoke test (2026-08-19)
+
+Same day's sixth pass. `git push` to `cloud-deployment` now automatically tests, build-validates, and
+deploys to the live pilot — reversing `ci.yml`'s original deliberate choice to stay read-only, now that
+there's a safe, scoped way to hand a workflow real credentials (a forced-command-restricted deploy key, not
+the operator's own admin key).
+
+- **A real incident, caught during manual testing before any CI involvement**: the (pre-existing, not
+  newly-introduced) `deploy-staging.sh` never applied the HTTPS/CloudWatch overlay files — running it
+  exactly as documented dropped port 443 for several minutes on the live pilot. Caught by an external check,
+  fixed immediately (`docker compose -f ... -f docker-compose.https.yml -f docker-compose.cloudwatch.yml up -d`
+  restored it), and then fixed at the root: both `deploy-staging.sh` and the new `rollback-staging.sh` now
+  detect and always include the correct overlay files for every `docker compose` call.
+- **A second bug found while verifying the first fix**: the internal health check hit plain HTTP, which
+  301-redirects to HTTPS under the overlay — and `curl -f` doesn't treat a 301 as failure, so the check was
+  reporting success without ever reaching Django. Fixed by checking response content
+  (`grep '"status":"ok"'`), matching the pattern `scripts/verify-staging.sh` already used correctly.
+- **A third bug found while testing the new rollback script**: `rollback-staging.sh`'s dirty-working-tree
+  guard checked `git status --porcelain`, which flags untracked files (harmless scratch clutter) the same as
+  real uncommitted changes — even though `git checkout` never touches untracked files. Fixed to check
+  tracked-file modifications specifically (`git diff --quiet` / `git diff --cached --quiet`).
+- **The port-443 incident recurred a second time** while testing "roll forward" after a rollback: checking
+  out `cloud-deployment` and re-running `deploy-staging.sh` restored the still-unfixed, already-committed
+  version of the script, because the first fix existed only as an uncommitted local patch at that point.
+  Same immediate restoration, same root-cause fix already in place — but this recurrence is the concrete
+  reason today's CI/CD work is committed and pushed promptly rather than left as local changes. Full log:
+  `docs/CI_CD.md` §14.
+- **New `scripts/rollback-staging.sh`**: reads `~/.karosl-deploy-history` (written by every successful
+  `deploy-staging.sh` run) for the previous known-good commit, checks it out, rebuilds, restarts, verifies —
+  never touches the database, and explicitly does not attempt automated migration downgrades (a real,
+  documented limitation of code-only rollback, not silently papered over).
+- **Dedicated, restricted deploy key**: generated separately from the operator's admin key, installed with a
+  `command=` forced-command restriction on the instance so it can only ever run
+  `scripts/ci-deploy-entrypoint.sh` — a leaked key's blast radius is "trigger a deploy," not "arbitrary
+  shell." Private half went straight from a scratch file into `gh secret set`, never printed.
+  `gh secret list` confirms exactly `EC2_HOST`/`EC2_USER`/`EC2_DEPLOY_KEY` — nothing extra.
+- **Two workflows, not one**: `ci.yml` stays read-only (`dev` + PRs); new `deploy-staging.yml` owns
+  `cloud-deployment` exclusively — tests and build must all pass (`needs:`) before the deploy job can start,
+  and a feature branch is never auto-deployed.
+- Full reference: `docs/CI_CD.md`.
+
 ## Basic CloudWatch observability (2026-08-19)
 
 Same day's fifth pass. CloudWatch monitoring genuinely didn't exist before this — confirmed directly

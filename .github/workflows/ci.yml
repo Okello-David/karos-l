@@ -2,8 +2,16 @@
 #
 # This workflow only ever READS the repository. It has no deploy step, no
 # registry push, and no AWS credentials: the repo is public, so anything a
-# workflow can reach is effectively public too. Deployment stays manual and
-# deliberate (docs/AWS_EC2_DEPLOYMENT.md).
+# workflow can reach is effectively public too.
+#
+# Deployment now DOES happen automatically, but only from a separate,
+# dedicated workflow scoped to one branch: deploy-staging.yml, triggered on
+# push to cloud-deployment only (docs/CI_CD.md). That workflow re-runs these
+# same checks itself before deploying — deliberately not chained to this one
+# via workflow_run, which keeps each workflow simple to reason about on its
+# own at the cost of some duplication. cloud-deployment was removed from this
+# workflow's own trigger below so the same push doesn't run the test suite
+# twice.
 #
 # Baselines this protects, previously only ever verified by hand and written
 # into docs/PROJECT_STATE.md: backend 237/237, frontend 45/45, clean build.
@@ -12,7 +20,7 @@ name: CI
 
 on:
   push:
-    branches: [dev, cloud-deployment]
+    branches: [dev]
   pull_request:
 
 # Read-only. The workflow never writes to the repo, comments on PRs, or

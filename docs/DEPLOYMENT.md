@@ -9,7 +9,7 @@ This document covers deploying KarosL's containers. For architecture rationale a
 | **Local production-like** (Docker Compose on a dev machine) | ✅ Verified | This document |
 | **AWS staging** (single EC2 + Docker Compose) | ✅ **Live since 2026-07-29** — `eu-north-1`, instance `i-0afd1871b46296500` | `docs/AWS_STAGING_CHECKLIST.md` + `docs/AWS_EC2_DEPLOYMENT.md` |
 | **AWS staging — domain + HTTPS** | ✅ Live since 2026-07-31 | `docs/DOMAIN_HTTPS_PLAN.md` |
-| **AWS production** (RDS, S3, CloudWatch) | ⛔ Not started, deliberately deferred | `docs/AWS_DEPLOYMENT_PLAN.md` Phases 3–6 |
+| **AWS production** (RDS ✅, S3 ✅, CloudWatch ✅) | 🟡 Phases 3–5 done on staging; Phase 6 (multi-instance/ALB) deliberately deferred | `docs/AWS_DEPLOYMENT_PLAN.md` Phases 3–6, `docs/RDS_MIGRATION.md` |
 
 ## Required pre-deployment step for any AWS target: cost safety
 
@@ -113,7 +113,8 @@ Staging is **live** in `eu-north-1` on instance `i-0afd1871b46296500` (`karosl-s
 
 - **Observability** — logs, error counting, resource and disk inspection: `docs/DEVOPS.md` §11. CloudWatch
   Logs, alarms, and SNS email alerting (added 2026-08-19): `docs/CLOUDWATCH_MONITORING.md`.
-- **Backup & recovery** — `pg_dump`, copying the dump off the instance, and the safe disposable-database restore pattern: `docs/DEVOPS.md` §12. Full S3 architecture (bucket, IAM, retention, `scripts/restore-from-s3.sh`'s safety guarantees): `docs/S3_BACKUP_ARCHITECTURE.md`.
+- **Database** — the live database is **Amazon RDS PostgreSQL** since 2026-08-19 (Single-AZ, private-only, `db.t4g.micro`). Full record, migration steps, and rollback: `docs/RDS_MIGRATION.md`.
+- **Backup & recovery** — `pg_dump`, copying the dump off the instance, and the safe disposable-database restore pattern: `docs/DEVOPS.md` §12. Full S3 architecture (bucket, IAM, retention, `scripts/restore-from-s3.sh`'s safety guarantees): `docs/S3_BACKUP_ARCHITECTURE.md`. Both scripts are `DB_HOST`-aware and now operate against RDS (`docs/RDS_MIGRATION.md`).
 
 ### HTTPS — added 2026-07-31
 
@@ -153,6 +154,9 @@ aws ec2 start-instances --instance-ids i-0afd1871b46296500 --region eu-north-1
 After a start the **public IP changes**, so `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, and `CORS_ALLOWED_ORIGINS` in the server's `.env` must be updated and `docker compose up -d` re-run — or just run `./scripts/recover-staging.sh`, which does exactly that. See `docs/AWS_EC2_DEPLOYMENT.md` §13.
 
 ### Redeploying a code change
+
+**Automatic since 2026-08-19**: `git push` to `cloud-deployment` runs this same command via CI —
+`docs/CI_CD.md`. Manually, exactly as before:
 
 ```bash
 ssh -i ~/.ssh/karosl-staging-key.pem ec2-user@<EC2_PUBLIC_IP>
