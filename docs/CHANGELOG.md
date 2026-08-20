@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Fixed — SNS subscription confirmed, one of two audit blockers closed (2026-08-20, later the same day)
+- Confirmed the `karosl-staging-alerts` SNS email subscription (`grbsderrick@gmail.com`), previously
+  `PendingConfirmation` per the production-readiness audit below — found the AWS confirmation email and
+  clicked "Confirm subscription," then **independently verified via `aws sns list-subscriptions-by-topic`**
+  (SubscriptionArn is now a real ARN, not `PendingConfirmation`). CloudWatch alarms now actually reach that
+  inbox. Documentation-only change: added a dated update section to `docs/PRODUCTION_READINESS_REVIEW.md`
+  (§0) rather than rewriting the original audit findings, which are preserved as written. **Closes the
+  SNS-notification blocker; the permission gap (`IsAuthenticated | IsPropertyManager`) remains the sole
+  outstanding blocker from the audit.**
+
 ### Added — Production-readiness audit and hardening (2026-08-20)
 - **New `docs/PRODUCTION_READINESS_REVIEW.md`**: full audit against the live pilot covering architecture,
   security, database, backups, monitoring, CI/CD, cost, 12 failure-mode scenarios, and an evidence-based

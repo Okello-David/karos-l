@@ -7,6 +7,25 @@ re-stating existing docs. Where docs and reality disagreed, reality wins and the
 (`docs/RDS_MIGRATION.md`, `docs/S3_BACKUP_ARCHITECTURE.md`, `docs/AWS_STAGING_CHECKLIST.md`, `docs/CI_CD.md`
 — see their individual diffs this same day).
 
+## 0. Update — SNS subscription confirmed (2026-08-20, later the same day)
+
+**This section is a dated addendum, not a rewrite.** Everything below it (§§1–13) is preserved exactly as
+written during the original audit earlier on 2026-08-20, including the SNS subscription being described as
+unconfirmed at that time — that was accurate when written and is kept as the historical record of what the
+audit found.
+
+Later the same day, the SNS subscription referenced in §6 and §12 (blocker 2) **was confirmed**: found the
+AWS confirmation email in `grbsderrick@gmail.com`'s inbox and clicked "Confirm subscription." This was
+**independently verified via the AWS CLI** (`aws sns list-subscriptions-by-topic --topic-arn
+arn:aws:sns:eu-north-1:908877263055:karosl-staging-alerts`), which now returns a real subscription ARN
+(`...karosl-staging-alerts:64350d94-395a-46c9-802d-eeca8198c2b9`) rather than `PendingConfirmation` — not
+just a "confirmed" page in the browser taken on faith.
+
+**This closes the SNS-notification blocker** named in the original §12/§13. CloudWatch alarms now actually
+reach that inbox. **The sole remaining outstanding blocker from this audit is the permission gap**
+(`IsAuthenticated | IsPropertyManager`, §3/§12) — unchanged, still deliberately unfixed pending a product
+decision.
+
 ## 1. Architecture
 
 ```
@@ -276,8 +295,10 @@ infrastructure — no longer used, left in place rather than revoked (recommende
 **Blockers (should be resolved before calling this "production," not just "pilot"):**
 1. **The permission gap.** Any authenticated user can create occupants and record payments. This needs a
    product decision (who should be able to do what), not a unilateral code change — flagged, not fixed.
-2. **SNS email confirmation.** Trivial for the account owner (one click in their inbox), but until done,
-   every alarm in §6/§9 is silently unmonitored.
+   **Status: still open — the sole remaining blocker from this audit (see §0).**
+2. ~~**SNS email confirmation.**~~ Trivial for the account owner (one click in their inbox), but until done,
+   every alarm in §6/§9 is silently unmonitored. **Status: resolved 2026-08-20, see §0 — confirmed and
+   independently verified via the AWS CLI.**
 
 **Non-blocking, recommended next steps (ordered by leverage, not urgency):**
 1. Confirm the SNS subscription (5 minutes, closes a real gap).
@@ -311,6 +332,10 @@ real access-control gap on live data, and (2) monitoring alarms exist and were p
 but do not yet reach anyone, because the SNS subscription was never confirmed. Both are small, well-
 understood, and fixable in under a day of combined effort — one is a product decision, the other is a
 single email click — but neither should be waved away as already handled.
+
+*(This verdict paragraph is preserved as originally written. As of the §0 update, reason (2) has been
+resolved — the SNS subscription is confirmed and independently verified. Reason (1), the permission gap,
+remains the sole open blocker.)*
 
 Everything else in this review — database configuration, backup/DR posture within its evidenced RPO,
 cost discipline, and the infrastructure's actual security posture — is genuinely solid and does not need
