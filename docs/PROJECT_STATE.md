@@ -1,5 +1,38 @@
 # Project State
 
+## Production-readiness audit and hardening (2026-08-20)
+
+Full audit — architecture, security, database, backups, monitoring, CI/CD, cost, failure modes, RPO/RTO —
+against the live pilot, requested as a dedicated review rather than a feature pass. Full record:
+`docs/PRODUCTION_READINESS_REVIEW.md`. **Verdict: READY WITH LIMITATIONS**, not a vague hedge — two named,
+fixable blockers (below), everything else genuinely solid.
+
+- **Real bug found and fixed**: `backend/config/settings_production.py` — believed to enforce
+  `DB_SSLMODE=require` on the RDS connection per `docs/RDS_MIGRATION.md` — was never actually loaded
+  (`DJANGO_SETTINGS_MODULE` always resolves to `config.settings`). Fixed by porting the same OPTIONS/sslmode
+  logic into `config/settings.py` itself, guarded to skip SQLite. Re-verified: 257/257 both DB backends.
+- **The CI/CD pipeline's first-ever real GitHub Actions run failed** — SSH could never reach the instance
+  from GitHub's hosted runners (security group allows only the operator's own `/32`; GitHub's IP range is
+  5,645 CIDRs, too large for a security group). **Fixed** with a self-hosted runner installed directly on
+  the EC2 instance, with a documented security invariant (never reachable from `ci.yml` or any fork-PR
+  workflow, since this repo is public). A second real bug (a stale password sanity check that never
+  accounted for RDS) was caught by the same first run and fixed. **Third run: fully green end-to-end**
+  — the strongest evidence in this pass, since the pipeline was actually exercised, not just reviewed.
+- **Confirmed still-open, deliberately not touched**: the `IsAuthenticated | IsPropertyManager` no-op-OR
+  permission gap (`docs/BUG_QUEUE.md`) — any authenticated user can create occupants and record payments.
+  Flagged as the top blocker; left for a product decision rather than a unilateral fix, per this pass's
+  explicit scope.
+- **CloudWatch alarm investigated**: `karosl-staging-backup-failed` was in `ALARM` — root cause was a
+  deliberate test (uploading to a fake bucket to prove the alarm fires), not a real failure; real backups
+  succeeded before and after. Working as designed, self-clears on its next 24h evaluation.
+- **Real gap found, not yet closed**: the SNS alarm-email subscription is `PendingConfirmation` — no alarm
+  currently notifies anyone. Needs the account owner to click a confirmation email; cannot be done by an
+  agent.
+- **Full live smoke test performed**: login → dashboard → property → section → unit → occupant →
+  occupancy → payment → receipt → audit trail → logout, all through the real UI with labeled test data
+  created and cleaned up (`AUDIT-TEST DELETE-ME`), every write confirmed via the Audit Log. One cosmetic
+  bug found (a duplicated success toast on payment recording) — confirmed **not** a duplicate write.
+
 ## RDS migration: PostgreSQL moved from the EC2 container to Amazon RDS (2026-08-19)
 
 Same day's seventh pass, and the one `docs/AWS_DEPLOYMENT_PLAN.md` has called "Phase 3" since the plan was

@@ -1,5 +1,36 @@
 # Release Plan
 
+## Production-readiness audit and hardening — 2026-08-20
+
+Full audit against the live pilot — architecture, security, database, backups, monitoring, CI/CD, cost,
+failure modes, RPO/RTO. Full record: `docs/PRODUCTION_READINESS_REVIEW.md`.
+
+**Verdict: READY WITH LIMITATIONS.** Two named blockers, not a hedge: (1) the `IsAuthenticated |
+IsPropertyManager` permission gap lets any authenticated user write payments/occupants on live tenant
+data — a product decision, deliberately not fixed unilaterally this pass; (2) the CloudWatch alarm SNS
+email subscription is unconfirmed, so no alarm currently reaches anyone — a one-click fix only the account
+owner can do. Everything else audited (RDS config, S3/backup posture, IAM scope, CI/CD, cost) is solid.
+
+**The pipeline itself got its first real test and failed twice before passing.** The CI/CD work from
+2026-08-19 had never actually run on GitHub Actions — only tested manually over SSH. Its first real run
+failed immediately (SSH unreachable from GitHub's hosted-runner IPs; the security group correctly restricts
+SSH to the operator's own `/32`, and GitHub's IP range — 5,645 CIDRs — can't fit in a security group at
+all). Fixed with a self-hosted runner on the instance itself, with a documented security invariant given
+the repo is public. A second real bug (password sanity check never updated for RDS) was caught immediately
+after by the same run. Third run: fully green, tests → build → deploy → external smoke test, all real.
+
+Also fixed: `backend/config/settings_production.py` (the module believed to enforce RDS TLS) was never
+actually loaded by Django — its logic was dead code. Ported into the settings module actually in use;
+re-verified 257/257 on both database backends.
+
+### Recommendation for the next sprint
+
+Confirm the SNS email subscription (5 minutes). Get a product decision on the permission gap. Run a real,
+timed disaster-recovery drill — RPO is evidenced (≤24h worst case) but RTO is not yet measured. The
+purchased-domain item remains the other standing item, gated on client sign-off, unrelated to this pass.
+
+---
+
 ## RDS migration — 2026-08-19
 
 PostgreSQL moved from the EC2 `db` container to Amazon RDS (`db.t4g.micro`, Single-AZ, private-only) —

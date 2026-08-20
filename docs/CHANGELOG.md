@@ -2,6 +2,42 @@
 
 ## [Unreleased]
 
+### Added — Production-readiness audit and hardening (2026-08-20)
+- **New `docs/PRODUCTION_READINESS_REVIEW.md`**: full audit against the live pilot covering architecture,
+  security, database, backups, monitoring, CI/CD, cost, 12 failure-mode scenarios, and an evidence-based
+  RPO/RTO assessment. **Verdict: READY WITH LIMITATIONS**, two named blockers (permission gap requiring a
+  product decision; unconfirmed SNS email subscription).
+- **Real bug fixed**: `backend/config/settings_production.py`'s `DB_SSLMODE`/`OPTIONS` TLS-enforcement
+  logic was never actually loaded by Django (`DJANGO_SETTINGS_MODULE` always resolves to `config.settings`).
+  Ported the same logic into `config/settings.py`, guarded to skip SQLite. Backend suite re-verified
+  257/257 on both SQLite and Postgres.
+- **CI/CD pipeline moved to a self-hosted runner** (`.github/workflows/deploy-staging.yml`): the pipeline's
+  first-ever real GitHub Actions run failed — SSH from GitHub-hosted runners could never reach the
+  instance (security group correctly restricts SSH to one `/32`; GitHub's published IP range, 5,645
+  CIDRs, can't fit in a security group). Installed a self-hosted runner directly on the EC2 instance
+  instead (systemd service, label `karosl-staging`), with a documented security invariant: never
+  reachable from `ci.yml` or any fork-PR-triggerable workflow, since this repo is public. A `smoke-test`
+  job stays on a GitHub-hosted runner so external reachability is still independently verified.
+- **Second real bug fixed**: `scripts/deploy-staging.sh`'s password sanity check required
+  `POSTGRES_PASSWORD` (the now-unused container's password) to equal `DB_PASSWORD` unconditionally — true
+  only pre-RDS, and it broke every deploy since the RDS migration. Gated on the same `$_db_host` check
+  already used for the RDS compose overlay.
+- **First fully green end-to-end pipeline run**: all six jobs (backend ×2, frontend, Docker build, deploy,
+  external smoke test) passed for real, confirmed independently via `./scripts/verify-staging.sh` (12/12).
+- **CloudWatch `backup-failed` alarm investigated**: root cause was a deliberate test (upload to a
+  nonexistent bucket, to prove the alarm fires), not a real incident. Working as designed; no fix needed.
+- **Full live smoke test performed** through the real UI: login, dashboard, Property Explorer, a full
+  property→section→unit→occupant→occupancy→payment→receipt→audit-trail chain with labeled test data
+  created and cleaned up, and logout — every write independently confirmed via the Audit Log.
+- **Small, safe hardening fixes**: `.gitignore` gained SSH-key patterns (`*.pem`, `*_rsa`, `*_ed25519`);
+  untracked a stray gitignored log file; corrected a stale `ci.yml` baseline comment
+  (237/237→257/257 backend, 45/45→52/52 frontend, 8→7 lint warnings); fixed two doc inaccuracies (the
+  backup IAM role's real scope also covers CloudWatch Logs/metrics, not S3-only; a stale "still no RDS"
+  claim in `docs/AWS_STAGING_CHECKLIST.md`).
+- **Deliberately not fixed**: the `IsAuthenticated | IsPropertyManager` permission gap (confirmed still
+  open on 8+ business viewsets) — flagged as the top blocker, left for a product decision per this pass's
+  explicit scope, matching the team's existing stance in `docs/BUG_QUEUE.md`.
+
 ### Added — Amazon RDS PostgreSQL migration (2026-08-19)
 - **New RDS instance `karosl-staging-postgres`**: PostgreSQL 16.14, `db.t4g.micro`, Single-AZ, 20 GiB gp3
   (autoscaling to 30), storage-encrypted, deletion protection enabled, publicly inaccessible. New security

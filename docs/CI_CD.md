@@ -1,10 +1,57 @@
 # CI/CD
 
-Status: **live since 2026-08-19.** `git push` to `cloud-deployment` now tests, build-validates, and deploys
-to the live pilot automatically. This reverses a deliberate earlier choice — `.github/workflows/ci.yml`'s
-own header comment used to say "deployment stays manual and deliberate" — made when the repo went public and
-before there was a safe, scoped way to hand a workflow real credentials. This doc is the reference for how
-that's now done safely.
+Status: **live and verified end-to-end since 2026-08-20.** `git push` to `cloud-deployment` now tests,
+build-validates, and deploys to the live pilot automatically. This reverses a deliberate earlier choice —
+`.github/workflows/ci.yml`'s own header comment used to say "deployment stays manual and deliberate" —
+made when the repo went public and before there was a safe, scoped way to hand a workflow real credentials.
+This doc is the reference for how that's now done safely.
+
+## 0. Update — self-hosted runner pivot, production-readiness audit (2026-08-20)
+
+**Sections 1–4 and 14 below describe the original SSH-deploy-key design as built 2026-08-19. That design
+was superseded the next day, before it had ever actually run in GitHub Actions, and is kept below only as
+a historical record — the current, live mechanism is the self-hosted runner described here.**
+
+The pipeline's first-ever real run (this doc's original §14 tested everything manually, over SSH from the
+operator's own machine — it never actually validated a connection from GitHub's own infrastructure) failed
+immediately at the SSH host-key step. Root cause: the EC2 security group allows SSH only from the
+operator's own `/32` (`docs/AWS_STAGING_CHECKLIST.md` §2a) — correct and deliberate — but GitHub-hosted
+runners connect from thousands of dynamic IPs that were never going to be on that allowlist. GitHub's own
+published IP ranges for Actions (`https://api.github.com/meta`, `actions` key) total **5,645 IPv4 CIDRs**
+(7,280 with IPv6) — far beyond what an EC2 security group can hold (AWS caps out around 1,000 rules with a
+quota increase, default 60), so widening the security group to cover them isn't viable.
+
+**Fix: a self-hosted GitHub Actions runner, installed as a systemd service directly on the EC2 instance**
+(label `karosl-staging`, package `actions-runner-linux-x64-2.336.0`, run as `ec2-user`). It polls GitHub
+outbound — no inbound security-group change needed at all. The `deploy` job now runs its command directly
+on the instance (no SSH hop, no deploy key); a new `smoke-test` job stays on a GitHub-hosted runner
+specifically so external reachability is still verified from outside the box over the real HTTPS path, not
+just a loopback check from the same machine that just deployed.
+
+**Security invariant, load-bearing and documented directly in the workflow header**: the self-hosted
+runner must never be reachable from any workflow triggerable by a `pull_request` from a fork — this repo is
+public, and a self-hosted runner reachable from a fork's PR workflow is a remote-code-execution path onto
+the live pilot instance. `ci.yml` (which does run on PRs from anyone) stays on `ubuntu-latest` and was
+confirmed to have zero references to the `karosl-staging` label. `deploy-staging.yml` is safe because its
+only trigger is `push: branches: [cloud-deployment]` — no `pull_request` trigger of any kind, so only
+someone who can already push to that branch can reach the runner.
+
+`EC2_DEPLOY_KEY`/`EC2_USER` (the old SSH deploy key and its forced-command entrypoint,
+`scripts/ci-deploy-entrypoint.sh`) are no longer used by CI as of this change, but were deliberately left
+in place rather than revoked in the same pass — **recommended follow-up**: retire the deploy key
+(`gh secret delete EC2_DEPLOY_KEY`, remove its `authorized_keys` line) once the self-hosted runner has
+proven itself over a longer window.
+
+**A second real bug was caught by this run**, after the network fix: `scripts/deploy-staging.sh`'s
+password sanity check (§5/§14 below) required `POSTGRES_PASSWORD` to equal `DB_PASSWORD` unconditionally —
+true only on the container-Postgres path, where `POSTGRES_PASSWORD` configures that same container. Since
+the RDS migration (`docs/RDS_MIGRATION.md`), `DB_PASSWORD` is a separate, deliberately different RDS
+credential, so this check `die`d on every deploy once RDS was live. Fixed by gating the check on the same
+`$_db_host` condition already used for the RDS compose overlay immediately above it in the script.
+
+**First fully green run, with both bugs fixed**: all six jobs passed — backend (SQLite + Postgres),
+frontend, Docker build, deploy (on the self-hosted runner), and the external smoke test — confirmed via
+`gh run watch` and independently via `./scripts/verify-staging.sh` (12/12) immediately after.
 
 ## 1. Current deployment, before this work (Task 1)
 
