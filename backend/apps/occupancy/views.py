@@ -26,7 +26,7 @@ def _get_occupancy_or_error(pk):
 
 
 class OccupancyViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated | IsPropertyManager]
+    permission_classes = [IsPropertyManager]
 
     def list(self, request):
         page = int(request.query_params.get("page", 1))

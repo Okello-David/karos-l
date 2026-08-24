@@ -4,7 +4,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.core.permissions import IsPropertyManager
 from apps.occupancy.models import Occupancy
 from apps.units.models import Unit
 from apps.occupants.models import Student
@@ -12,7 +11,7 @@ from apps.payments.models import Payment
 
 
 class DashboardSummaryView(APIView):
-    permission_classes = [IsAuthenticated | IsPropertyManager]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         total_capacity = (

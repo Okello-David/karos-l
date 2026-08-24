@@ -138,4 +138,32 @@ Reference pattern established in `Occupants.jsx` and applied consistently below:
 ## Deferred
 - Report generation is not implemented. The Reports route loads a placeholder with disabled report cards and a link to Backup & Export. This requires a reporting feature pass, so it was not added during bug fixing.
 - Medium/low-priority audit findings remain queued for a separate pass: invalid pagination handling, backup history pagination UI, admin section reorder awaiting, guided tour positioning, and additional UX polish. (Export header/key mismatches, previously listed here, were fixed in the Backend API Stability Sweep — see BUG-011.)
-- `IsAuthenticated | IsPropertyManager` is used as the permission class on regular business endpoints (occupants, occupancy, payments, properties read APIs). Since `IsAuthenticated` alone already grants access to any logged-in user, ORing it with `IsPropertyManager` has no additional effect — any authenticated user, regardless of group, can create occupants, record payments, and assign occupancy today. This appears to be an intentional two-tier design (day-to-day staff use these; only `apps/administration` truly requires the Property Manager role), but it was not specified anywhere, so flagging it rather than changing access control behavior without product sign-off.
+
+## Fixed 2026-08-24 — Permission gap on business endpoints (`IsAuthenticated | IsPropertyManager` no-op)
+
+`IsAuthenticated | IsPropertyManager` was used on 12 write-capable and read-only viewsets across 8 apps
+(occupants, occupancy, payments, properties, sections, units, dashboard, reports). Because `IsAuthenticated`
+alone already grants access to any logged-in user, the OR gate had no actual effect — any authenticated user
+could create occupants, record payments, and modify occupancy regardless of group membership.
+
+**Decision and fix (2026-08-24):**
+- **Write-capable endpoints** (occupants, occupancy, payments): tightened to `[IsPropertyManager]` only.
+  This matches the precedent already applied to `apps/administration` and closes the audit's top blocker.
+- **Read-only endpoints** (properties, sections, units, dashboard, reports): simplified to `[IsAuthenticated]`
+  only (removed the no-op OR). Viewing data was not the audit's concern; restricting reads could break
+  normal staff workflows.
+- **No per-property scoping model exists** (no `role` field, no user↔property relationship) — "Property Manager"
+  is a single global Django group. A more granular fix (per-property manager assignment) is out of scope
+  here; this matches the existing `apps/administration` pattern and closes the audit blocker.
+- **Verified safe for staging demo account `karosadmin`** — it is a Django superuser (created via
+  `createsuperuser`), and `IsPropertyManager.has_permission` short-circuits True for any superuser,
+  so the permission change will not lock it out.
+- **Tests updated**: added the "Property Manager" group to the test user's setUp in
+  `apps/payments/tests.py`, `apps/occupants/tests.py`, and `apps/occupancy/tests.py` (previously they
+  relied on the no-op `IsAuthenticated` OR). Added negative-path tests in all three files asserting 403
+  for a plain non-manager staff user, matching the pattern already established in `apps/administration/tests.py`.
+  **All 257/257 backend tests pass** (baseline from the 2026-08-20 audit): 36 payment, 53 occupants/occupancy,
+  plus administration, dashboard, audit, and other app suites.
+- **Files changed**: `backend/apps/{payments,occupants,occupancy}/views.py` (permission_classes),
+  `backend/apps/{properties,sections,units,dashboard,reports}/views.py` (remove no-op `| IsPropertyManager`),
+  `backend/apps/{payments,occupants,occupancy}/tests.py` (setUp group + negative tests).

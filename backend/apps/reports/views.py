@@ -9,7 +9,6 @@ from rest_framework.views import APIView
 from apps.audit.models import AuditLog
 from apps.audit.services import AuditService
 from apps.backup.services import ExportService
-from apps.core.permissions import IsPropertyManager
 
 from .services import (
     FINANCIAL_COLUMNS,
@@ -39,7 +38,7 @@ class BaseReportView(APIView):
     Matches the permission convention used by every other business endpoint.
     """
 
-    permission_classes = [IsAuthenticated | IsPropertyManager]
+    permission_classes = [IsAuthenticated]
 
     # Set by subclasses.
     report_name = None

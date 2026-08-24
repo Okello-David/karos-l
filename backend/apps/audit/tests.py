@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.contrib.auth.models import Group
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -223,6 +224,8 @@ class AuditIntegrationTests(TestCase):
         self.user = User.objects.create_user(
             username="admin", password="pass123", is_staff=True
         )
+        group, _ = Group.objects.get_or_create(name="Property Manager")
+        self.user.groups.add(group)
         self.token = Token.objects.create(user=self.user)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
 

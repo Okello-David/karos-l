@@ -7,24 +7,42 @@ re-stating existing docs. Where docs and reality disagreed, reality wins and the
 (`docs/RDS_MIGRATION.md`, `docs/S3_BACKUP_ARCHITECTURE.md`, `docs/AWS_STAGING_CHECKLIST.md`, `docs/CI_CD.md`
 — see their individual diffs this same day).
 
-## 0. Update — SNS subscription confirmed (2026-08-20, later the same day)
+## 0. Updates — SNS confirmed + permission gap fixed
 
-**This section is a dated addendum, not a rewrite.** Everything below it (§§1–13) is preserved exactly as
-written during the original audit earlier on 2026-08-20, including the SNS subscription being described as
-unconfirmed at that time — that was accurate when written and is kept as the historical record of what the
-audit found.
+**This section contains dated addenda to the original 2026-08-20 audit.** Everything below it (§§1–13) is
+preserved exactly as written during the original audit earlier on 2026-08-20. This section documents
+resolutions made after the audit's initial findings.
 
-Later the same day, the SNS subscription referenced in §6 and §12 (blocker 2) **was confirmed**: found the
-AWS confirmation email in `grbsderrick@gmail.com`'s inbox and clicked "Confirm subscription." This was
-**independently verified via the AWS CLI** (`aws sns list-subscriptions-by-topic --topic-arn
+### SNS subscription confirmed (2026-08-20, later the same day)
+
+The SNS subscription referenced in §6 and §12 (blocker 2) **was confirmed**: found the AWS confirmation
+email in `grbsderrick@gmail.com`'s inbox and clicked "Confirm subscription." This was **independently
+verified via the AWS CLI** (`aws sns list-subscriptions-by-topic --topic-arn
 arn:aws:sns:eu-north-1:908877263055:karosl-staging-alerts`), which now returns a real subscription ARN
 (`...karosl-staging-alerts:64350d94-395a-46c9-802d-eeca8198c2b9`) rather than `PendingConfirmation` — not
 just a "confirmed" page in the browser taken on faith.
 
 **This closes the SNS-notification blocker** named in the original §12/§13. CloudWatch alarms now actually
-reach that inbox. **The sole remaining outstanding blocker from this audit is the permission gap**
-(`IsAuthenticated | IsPropertyManager`, §3/§12) — unchanged, still deliberately unfixed pending a product
-decision.
+reach that inbox.
+
+### Permission gap fixed (2026-08-24)
+
+The permission gap named in the original §3/§12 (blocker 1, `IsAuthenticated | IsPropertyManager` no-op on
+12 viewsets across 8 apps) **has been fixed**. See `docs/BUG_QUEUE.md` for the full context and decision;
+short version:
+
+- **Decision made:** Any authenticated user should not be able to create occupants/record payments — restricted
+  to Property Manager group only, matching the precedent in `apps/administration` (already fixed per BUG_QUEUE).
+  Read-only endpoints stay open to any authenticated user.
+- **Implementation:** Tightened write-capable viewsets (occupants, occupancy, payments) to `[IsPropertyManager]`,
+  simplified read-only viewsets to `[IsAuthenticated]`.
+- **Tested:** All 257/257 backend tests pass (36 payments, 53 occupants/occupancy, plus others). Added explicit
+  negative-path tests asserting 403 for non-managers trying to create/modify data.
+- **Safe for demo account:** `karosadmin` is a Django superuser; `IsPropertyManager` short-circuits True for
+  any superuser, so the change will not lock it out during client review.
+
+**This closes the sole remaining blocker from the audit** — the system now satisfies the "READY WITH LIMITATIONS"
+verdict with both named blockers resolved.
 
 ## 1. Architecture
 

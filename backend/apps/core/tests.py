@@ -15,6 +15,8 @@ class DrfExceptionHandlerTests(TestCase):
         self.user = User.objects.create_user(
             username="testuser", password="testpass123",
         )
+        group, _ = Group.objects.get_or_create(name="Property Manager")
+        self.user.groups.add(group)
         self.token, _ = Token.objects.get_or_create(user=self.user)
 
     def test_unauthenticated_returns_json_detail(self):

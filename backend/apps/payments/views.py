@@ -27,7 +27,7 @@ def _get_payment_or_error(pk):
 
 
 class PaymentViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated | IsPropertyManager]
+    permission_classes = [IsPropertyManager]
 
     def list(self, request):
         page = int(request.query_params.get("page", 1))
@@ -101,7 +101,7 @@ class PaymentViewSet(viewsets.ViewSet):
 
 
 class ReceiptViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated | IsPropertyManager]
+    permission_classes = [IsAuthenticated]
 
     def list(self, request):
         page = int(request.query_params.get("page", 1))

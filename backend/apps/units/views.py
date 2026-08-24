@@ -1,7 +1,6 @@
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 
-from apps.core.permissions import IsPropertyManager
 
 from .models import Unit
 from .serializers import UnitDetailSerializer, UnitSerializer
@@ -9,7 +8,7 @@ from .serializers import UnitDetailSerializer, UnitSerializer
 
 class UnitListView(generics.ListAPIView):
     serializer_class = UnitSerializer
-    permission_classes = [IsAuthenticated | IsPropertyManager]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
 
     def get_queryset(self):
@@ -22,5 +21,5 @@ class UnitListView(generics.ListAPIView):
 
 class UnitDetailView(generics.RetrieveAPIView):
     serializer_class = UnitDetailSerializer
-    permission_classes = [IsAuthenticated | IsPropertyManager]
+    permission_classes = [IsAuthenticated]
     queryset = Unit.objects.filter(is_active=True).select_related("section__property")

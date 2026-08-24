@@ -3,7 +3,6 @@ from django.db.models import Prefetch, Q
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 
-from apps.core.permissions import IsPropertyManager
 from apps.occupancy.models import Occupancy
 from apps.sections.models import Section
 from apps.units.models import Unit
@@ -15,13 +14,13 @@ from .serializers import PropertyExplorerSerializer, PropertySerializer
 class PropertyListView(generics.ListAPIView):
     queryset = Property.objects.filter(is_active=True)
     serializer_class = PropertySerializer
-    permission_classes = [IsAuthenticated | IsPropertyManager]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
 
 
 class PropertyExplorerView(generics.ListAPIView):
     serializer_class = PropertyExplorerSerializer
-    permission_classes = [IsAuthenticated | IsPropertyManager]
+    permission_classes = [IsAuthenticated]
     pagination_class = None
 
     def get_queryset(self):

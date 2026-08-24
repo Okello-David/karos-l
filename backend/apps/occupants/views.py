@@ -21,7 +21,7 @@ def _get_student_or_error(pk):
 
 
 class StudentViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated | IsPropertyManager]
+    permission_classes = [IsPropertyManager]
 
     def list(self, request):
         page = int(request.query_params.get("page", 1))

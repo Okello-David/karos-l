@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.contrib.auth.models import Group
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -22,6 +23,8 @@ class OccupancyAPITests(TestCase):
         self.user = User.objects.create_user(
             username="admin", password="pass123", is_staff=True
         )
+        self.manager_group, _ = Group.objects.get_or_create(name="Property Manager")
+        self.user.groups.add(self.manager_group)
         self.token = Token.objects.create(user=self.user)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
 
@@ -64,6 +67,15 @@ class OccupancyAPITests(TestCase):
         self.client.credentials()
         response = self._assign()
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_assign_non_manager_forbidden(self):
+        non_manager = User.objects.create_user(
+            username="staff", password="pass123", is_staff=True
+        )
+        non_manager_token = Token.objects.create(user=non_manager)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {non_manager_token.key}")
+        response = self._assign()
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     # --- Assign (Create) ---
 

@@ -2,15 +2,37 @@
 
 ## [Unreleased]
 
+### Fixed — Permission gap on business endpoints (`IsAuthenticated | IsPropertyManager` no-op) (2026-08-24)
+- **Blocker resolved**: 12 viewsets across 8 apps (occupants, occupancy, payments, properties, sections, units,
+  dashboard, reports) used `permission_classes = [IsAuthenticated | IsPropertyManager]`. Because `IsAuthenticated`
+  alone already grants access to any logged-in user, the OR gate was a no-op — any authenticated user could create
+  occupants, record payments, and modify occupancy regardless of group membership. This was the audit's top blocker
+  (named in `docs/PRODUCTION_READINESS_REVIEW.md` §3/§12, flagged repeatedly across prior sessions, and deferred
+  for a product decision per `docs/BUG_QUEUE.md`).
+- **Decision**: Any authenticated user should not be able to perform writes on business data — restricted to
+  Property Manager group only. Matches the precedent already applied to `apps/administration`. Read-only endpoints
+  stay open to any authenticated user (viewing data was not the audit's concern).
+- **Implementation**: Tightened write-capable viewsets to `[IsPropertyManager]` (occupants, occupancy, payments);
+  simplified read-only viewsets to `[IsAuthenticated]` only (removed the no-op OR). Updated test suites:
+  `apps/payments/tests.py`, `apps/occupants/tests.py`, `apps/occupancy/tests.py` each now add the "Property Manager"
+  group to their primary test user (previously relied on the no-op OR). Added explicit negative-path tests asserting
+  403 for plain non-manager staff users trying to create/modify data, matching the pattern in `apps/administration/tests.py`.
+- **Verified safe for staging**: `karosadmin` demo account is a Django superuser; `IsPropertyManager.has_permission`
+  short-circuits True for any superuser, so the change will not lock it out during client review.
+- **Tests**: All 257/257 backend tests pass (36 payments, 53 occupants/occupancy, plus administration, dashboard, etc.).
+- **Files changed**: `backend/apps/{payments,occupants,occupancy}/views.py` (permission_classes), `backend/apps/{properties,sections,units,dashboard,reports}/views.py` (remove no-op OR), `backend/apps/{payments,occupants,occupancy}/tests.py` (group setup + negative tests).
+- **Result**: This closes the sole remaining blocker from the 2026-08-20 production-readiness audit. Updated
+  `docs/PRODUCTION_READINESS_REVIEW.md` (§0) and `docs/BUG_QUEUE.md` (Deferred → Fixed).
+
 ### Fixed — SNS subscription confirmed, one of two audit blockers closed (2026-08-20, later the same day)
 - Confirmed the `karosl-staging-alerts` SNS email subscription (`grbsderrick@gmail.com`), previously
-  `PendingConfirmation` per the production-readiness audit below — found the AWS confirmation email and
+  `PendingConfirmation` per the production-readiness audit — found the AWS confirmation email and
   clicked "Confirm subscription," then **independently verified via `aws sns list-subscriptions-by-topic`**
   (SubscriptionArn is now a real ARN, not `PendingConfirmation`). CloudWatch alarms now actually reach that
   inbox. Documentation-only change: added a dated update section to `docs/PRODUCTION_READINESS_REVIEW.md`
   (§0) rather than rewriting the original audit findings, which are preserved as written. **Closes the
   SNS-notification blocker; the permission gap (`IsAuthenticated | IsPropertyManager`) remains the sole
-  outstanding blocker from the audit.**
+  outstanding blocker from the audit** (now resolved — see above).
 
 ### Added — Production-readiness audit and hardening (2026-08-20)
 - **New `docs/PRODUCTION_READINESS_REVIEW.md`**: full audit against the live pilot covering architecture,
