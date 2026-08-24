@@ -239,7 +239,11 @@ if [ -f docker-compose.rds.yml ] && [ -n \"\$_db_host\" ] && [ \"\$_db_host\" !=
     COMPOSE_FILES+=(-f docker-compose.rds.yml); \
 fi; \
 echo \"Compose files: \${COMPOSE_FILES[*]}\"; \
-docker compose \"\${COMPOSE_FILES[@]}\" up -d" 2>&1 \
+if [ -n \"\$_db_host\" ] && [ \"\$_db_host\" != \"db\" ]; then \
+    docker compose \"\${COMPOSE_FILES[@]}\" up -d --no-deps backend frontend; \
+else \
+    docker compose \"\${COMPOSE_FILES[@]}\" up -d; \
+fi" 2>&1 \
     | tail -6 | sed 's/^/    /'
 
 # --- 8. Retire orphaned certificates -----------------------------------------

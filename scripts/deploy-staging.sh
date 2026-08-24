@@ -185,7 +185,18 @@ log "Building images (first build on a small instance can take 5-15 minutes)..."
 docker compose "${COMPOSE_FILES[@]}" build
 
 log "Starting services..."
-docker compose "${COMPOSE_FILES[@]}" up -d
+# Once the old container-Postgres `db` service has been decommissioned
+# (scripts/decommission-old-db.sh / .github/workflows/decommission-old-db.yml,
+# docs/RDS_MIGRATION.md), a blanket `up -d` would silently recreate it on
+# every future deploy, since docker-compose.yml still defines the service
+# (kept for local dev's non-RDS path) and `backend` still lists it in
+# `depends_on`. --no-deps is the same idiom already used once for exactly
+# this reason during the original RDS cutover (docs/RDS_MIGRATION.md).
+if [ -n "$_db_host" ] && [ "$_db_host" != "db" ]; then
+    docker compose "${COMPOSE_FILES[@]}" up -d --no-deps backend frontend
+else
+    docker compose "${COMPOSE_FILES[@]}" up -d
+fi
 
 # --- Wait for health --------------------------------------------------------
 log "Waiting for services to report healthy (up to 120s)..."

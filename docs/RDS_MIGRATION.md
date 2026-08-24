@@ -260,6 +260,18 @@ guess**: migration cutover was 2026-08-19; the 7-day window closes 2026-08-26; a
 remain**. **Window not yet complete — left untouched, per this doc's own recommendation.** No code or
 infrastructure change made for this. Revisit on/after 2026-08-26.
 
+**Decommission mechanism built 2026-08-24, ready to execute on/after 2026-08-26**: `scripts/decommission-old-db.sh`
+(precondition checks — refuses unless `.env`'s `DB_HOST` genuinely points at RDS and unless the app's own
+health check is currently green — then `docker compose stop db` + `docker compose rm -f db`, re-verifies
+health afterward) and `.github/workflows/decommission-old-db.yml` (a `workflow_dispatch`-only trigger
+requiring a literal `DECOMMISSION` confirmation string, running on the same self-hosted runner as normal
+deploys — no SSH needed). **Still does not touch `karosl_postgres_data`** — the volume remains a separate,
+later, deliberate decision, exactly as this section has always recommended. `deploy-staging.sh`,
+`rollback-staging.sh`, and `recover-staging.sh` were also updated (same day) to start containers with
+`--no-deps backend frontend` instead of a blanket `up -d` whenever `DB_HOST` points at RDS — the same
+`--no-deps` idiom already used once during the original cutover — so the container won't silently get
+recreated by a routine deploy after it's been removed.
+
 ## Cost
 
 | Item | Rate (eu-north-1) | Monthly |

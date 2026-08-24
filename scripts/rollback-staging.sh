@@ -137,7 +137,15 @@ log "Building images for the rollback target..."
 docker compose "${COMPOSE_FILES[@]}" build
 
 log "Restarting services..."
-docker compose "${COMPOSE_FILES[@]}" up -d
+# See the matching comment in deploy-staging.sh — once the old container-
+# Postgres `db` service is decommissioned, a blanket `up -d` would silently
+# recreate it via `backend`'s depends_on. --no-deps is the same idiom used
+# during the original RDS cutover (docs/RDS_MIGRATION.md).
+if [ -n "$_db_host" ] && [ "$_db_host" != "db" ]; then
+    docker compose "${COMPOSE_FILES[@]}" up -d --no-deps backend frontend
+else
+    docker compose "${COMPOSE_FILES[@]}" up -d
+fi
 
 log "Waiting for services to report healthy (up to 120s)..."
 deadline=$((SECONDS + 120))
