@@ -1,5 +1,35 @@
 # Release Plan
 
+## Version 1.0 Launch and Operational Handover sprint — 2026-08-24
+
+**KarosL v1.0.0 released.** Fourth same-day sprint, packaging the day's authorization/operational work
+into a versioned, documented release. Full record: `docs/V1_RELEASE_SCOPE.md`,
+`docs/GO_LIVE_CHECKLIST.md`, `docs/releases/v1.0.0.md`.
+
+**Live-verified, not just documented**: a real end-to-end workflow test (register occupant → assign unit →
+record payment → view receipt → check balance → checkout → archive) was driven live in the browser by the
+account owner logging in and handing off control, confirmed correct at every step via the audit log. This
+specifically re-verified the exact endpoints whose permissions changed across the day's earlier RBAC and
+operational-cleanup deploys — genuinely new evidence, since the prior full smoke test (2026-08-20) predates
+those changes.
+
+**Live-data audit found the system clean**: 2 real/demo properties (intentional seed data, not stray test
+data) and exactly 3 already-archived, clearly-labeled test records from prior sessions — no unknowns. Data
+hygiene was never actually a launch risk here, but it's now evidenced, not assumed.
+
+**Verdict: READY WITH LIMITATIONS.** Every known limitation is bounded and already tracked (see
+`docs/V1_RELEASE_SCOPE.md` §6) — none block a demo/review-stage v1.0 launch.
+
+### Recommendation for the next phase
+1. Once the RDS old-container validation window closes (2026-08-26): decommission it, per the existing
+   documented procedure.
+2. Address the two highest-ranked limitations when convenient, not urgently: move `SECRET_KEY`/RDS password
+   into Secrets Manager or SSM (closes the highest-impact single gap), and add a backup-timer-silent-stop
+   alarm (closes the highest-likelihood "wouldn't find out" gap).
+3. Beyond that, next work should be product-driven — following the client's review feedback, per standing
+   project context — rather than another infrastructure sprint. The authorization, operational, and
+   documentation foundation is now in a genuinely solid, evidenced state.
+
 ## Operational Cleanup and Observability sprint — 2026-08-24
 
 Infrastructure/operations hygiene, third same-day sprint after the permission-gap fix and RBAC hardening

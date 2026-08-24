@@ -1,5 +1,17 @@
 # Bug Queue
 
+## Confirmed 2026-08-24 (v1.0 launch sprint) — two documentation corrections, no code changes
+
+While assembling `docs/V1_RELEASE_SCOPE.md`, found this file's own "Deferred" section (below) still lists
+report generation as "not implemented" — that's stale. Reports were built 2026-08-01
+(`backend/apps/reports/`, three working reports with CSV/XLSX export) and are live; confirmed again this
+pass via a real live click-through. Corrected in `docs/V1_RELEASE_SCOPE.md` rather than edited here, since
+this file's convention is to preserve historical entries as written.
+
+Also: the payment/occupancy-assignment double-toast fix (immediately below) was **re-confirmed live** this
+same day, in the browser, as part of the v1.0 Phase 8 workflow test — both actions produced exactly one
+toast each, matching the fix.
+
 ## Fixed 2026-08-24 — Payment/occupancy-assignment double success toast
 
 Root-caused precisely during the Operational Cleanup sprint. Confirmed **not** a duplicate database write —

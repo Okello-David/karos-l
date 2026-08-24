@@ -1,5 +1,36 @@
 # Project State
 
+## Version 1.0 Launch and Operational Handover sprint (2026-08-24)
+
+Fourth and final same-day sprint — packaged the day's work (permission-gap fix, RBAC hardening,
+operational cleanup, all below) into a versioned v1.0 release with full documentation handover.
+
+- **New docs**: `docs/V1_RELEASE_SCOPE.md` (exact in/out feature list, corrected one stale claim — reports
+  are live, despite an outdated `docs/BUG_QUEUE.md` note saying otherwise), `docs/GO_LIVE_CHECKLIST.md`
+  (every item cites its evidence — live check, code citation, or dated prior audit), `docs/USER_GUIDE.md`
+  (non-technical, using exact UI text traced from the actual components), `docs/ADMIN_RUNBOOK.md`
+  (task-oriented operator index), `docs/LIVE_DATA_AUDIT.md`, `docs/releases/v1.0.0.md`.
+- **Live-data audit performed**: restored the actual latest S3 backup into a disposable database (read-only,
+  the proven DR-sprint pattern — this environment has no write path to the live database). Found: 2 real/
+  demo properties and 16 demo occupants (intentional seed data for the client's review, not stray test
+  data), and 3 already-archived, clearly-labeled `AUDIT-TEST`/`RDS-MIGRATION-TEST` records from prior audit
+  passes. No unknown/ambiguous records. Cleanup SQL documented, not executed (no live DB write access from
+  this environment).
+- **Phase 8 live workflow test — performed and fully verified, not skipped.** The user connected the
+  Chrome extension and logged in as `karosadmin`; a full controlled pass (register → assign to unit →
+  record payment → view receipt PDF → check balance → checkout → archive) was driven live against the real
+  staging app, using the established `..._DELETE-ME` test-data labeling convention. Every step confirmed
+  correct both visually and via the audit log (exact order, correct actor/timestamps), including the
+  over-capacity unit-blocking UI and the single-toast behavior for both payment and occupancy actions
+  (confirming this session's earlier toast-duplication fix works live). Test record fully cleaned up
+  (checked out, archived) afterward.
+- **Versioning**: no `VERSION` file, no git tags, and `frontend/package.json` was still at the placeholder
+  `0.0.0` before this sprint — all confirmed via direct inspection, all created/bumped to `1.0.0` this pass.
+  Git tag `v1.0.0` created locally; pushing it is a separate confirmation.
+- **Verdict: READY WITH LIMITATIONS** — see `docs/GO_LIVE_CHECKLIST.md` and `docs/V1_RELEASE_SCOPE.md` §6
+  for the full, ranked list of known, bounded, already-tracked limitations. None are blockers for a
+  demo/review-stage launch.
+
 ## Operational Cleanup and Observability sprint (2026-08-24)
 
 Infrastructure/operations hygiene sprint, third of three same-day sprints (after the permission-gap fix and

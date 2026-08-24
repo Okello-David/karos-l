@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+Nothing yet — see `docs/RELEASE_PLAN.md`'s "Recommendation for the next phase" for what's likely next.
+
+## [1.0.0] - 2026-08-24
+
+First versioned release. `VERSION` file and `frontend/package.json`'s version (previously the placeholder
+`0.0.0`) both added/set this release; no prior git tag existed. Full release notes:
+`docs/releases/v1.0.0.md`. This release bundles everything below, accumulated across four sprints on the
+same day (permission-gap fix, RBAC hardening, operational cleanup, and this launch/handover sprint).
+
+### Added — Version 1.0 Launch and Operational Handover sprint (2026-08-24)
+- **New documentation**: `docs/V1_RELEASE_SCOPE.md`, `docs/GO_LIVE_CHECKLIST.md`, `docs/USER_GUIDE.md`,
+  `docs/ADMIN_RUNBOOK.md`, `docs/LIVE_DATA_AUDIT.md`, `docs/releases/v1.0.0.md`. Every checklist/scope claim
+  cites a live check performed this sprint, a code citation, or a dated prior audit finding.
+- **Live-data audit performed** by restoring the actual latest S3 backup into a disposable database
+  (read-only — no write path to the live database exists from this environment). Found 2 real/demo
+  properties + 16 demo occupants (intentional seed data, not stray test data) and 3 already-archived,
+  clearly-labeled prior test records. No unknowns. Cleanup SQL documented, not executed.
+- **Full end-to-end workflow live-verified**: register occupant → assign to unit → record payment → view
+  receipt → check balance → checkout → archive, driven live in the browser (the account owner logged in,
+  handed off control), every step confirmed via the audit log with correct actor/timestamps/ordering. This
+  specifically re-proved the exact endpoints whose permissions changed across the day's earlier RBAC and
+  operational-cleanup deploys.
+- **Verdict: READY WITH LIMITATIONS** — see `docs/V1_RELEASE_SCOPE.md` §6 for the full ranked list; none
+  block a demo/review-stage launch.
+
 ### Added / Fixed — Operational Cleanup and Observability sprint (2026-08-24)
 - **RDS monitoring added**: 3 new CloudWatch alarms — `karosl-staging-rds-low-storage`
   (`FreeStorageSpace` < 2 GiB, 2×5min), `karosl-staging-rds-high-cpu` (`CPUUtilization` > 80%, 3×5min),
