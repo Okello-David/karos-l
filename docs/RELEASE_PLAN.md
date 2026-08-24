@@ -1,5 +1,35 @@
 # Release Plan
 
+## Disaster recovery & incident response sprint — 2026-08-24
+
+Full record: `docs/DISASTER_RECOVERY.md` + `docs/runbooks/`. This was this plan's own standing
+recommendation from the 2026-08-20 pass below ("run a real, timed disaster-recovery drill").
+
+**RPO ≈24h worst case (evidenced: real daily S3 backups confirmed present 2026-08-19 through 2026-08-24).
+RTO for the S3-backup-restore path: 15 seconds (restore), under 1 minute (full verification) — measured,
+not estimated, via a real execution against a real backup into a disposable database.** Full-incident RTO
+for infrastructure-loss scenarios (EC2/RDS loss) remains estimated, not measured — doing so would require
+destroying live infrastructure to time the rebuild, correctly out of scope for a documentation-and-testing
+pass.
+
+Also fixed this same day: the permission gap named as this plan's other outstanding item (below) — see
+`docs/BUG_QUEUE.md`.
+
+**Posture: YELLOW, not GREEN.** Real gaps found and named plainly rather than smoothed over: RDS-native
+PITR is untested (would require a temporary second RDS instance — not created without asking first); no
+alarm exists for the backup timer silently stopping (vs. failing, which is alarmed); `.env` secrets have no
+second copy anywhere outside the EC2 instance; the new security-incident runbook is undrilled.
+
+### Recommendation for the next sprint
+In priority order: (1) close the backup-silent-stop monitoring gap — cheapest fix, highest-likelihood risk;
+(2) move `SECRET_KEY`/RDS password into Secrets Manager or SSM Parameter Store — closes the highest-impact
+gap, already the documented "later" plan; (3) add the RDS-specific CloudWatch alarms (storage/CPU/
+connections), recommended twice before now; (4) retire the stale, unused `EC2_DEPLOY_KEY` GitHub Secret.
+Only after those: a real (disposable-instance) RDS PITR drill and a tabletop run of the security-incident
+runbook.
+
+---
+
 ## Production-readiness audit and hardening — 2026-08-20
 
 Full audit against the live pilot — architecture, security, database, backups, monitoring, CI/CD, cost,

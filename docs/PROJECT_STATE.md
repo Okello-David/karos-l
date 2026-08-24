@@ -1,5 +1,42 @@
 # Project State
 
+## Disaster recovery & incident response sprint (2026-08-24)
+
+Full DR/IR pass, requested as its own dedicated sprint per `docs/RELEASE_PLAN.md`'s own recommendation
+("run a real, timed disaster-recovery drill — RPO is evidenced but RTO is not yet measured"). Full record:
+`docs/DISASTER_RECOVERY.md`, with 7 procedural runbooks in `docs/runbooks/`. **Posture: YELLOW** — real
+recovery mechanisms exist and one was proven end-to-end this pass, but real gaps remain (below).
+
+- **Permission gap fixed** (separate piece of work, same day): `IsAuthenticated | IsPropertyManager`'s
+  no-op OR — the sole remaining blocker from the 2026-08-20 audit — is now fixed. Write-capable endpoints
+  (occupants, occupancy, payments) require `IsPropertyManager`; read-only endpoints simplified to
+  `IsAuthenticated`. Full backend suite: 260/260. See `docs/BUG_QUEUE.md`.
+- **Real recovery test executed and measured, not just described**: S3 `pg_dump` backup restored into a
+  disposable local PostgreSQL database (never the live database, never the dev database), verified at both
+  the raw-SQL and Django-ORM layers across all 9 required record types (properties, sections, units,
+  occupants, occupancies, payments, receipts, audit log, users). **Restore itself: 15 seconds. Full
+  verification: under 1 minute.** This is the first empirically-measured RTO figure this project has had.
+- **RPO confirmed at ≈24h worst case** — evidenced by real S3 backup objects present for every day
+  2026-08-19 through 2026-08-24 at the documented `02:30 UTC` cadence, not just the documented schedule
+  taken on faith.
+- **Real gap found: RDS-native point-in-time-recovery is untested.** Testing it would require provisioning a
+  temporary second RDS instance, which was deliberately not done without asking first — the S3 `pg_dump`
+  path (tested, proven) is the one with real evidence behind it; RDS's own PITR remains a documented AWS
+  platform capability, not a proven procedure for this application.
+- **Real gap found: no alarm exists for the backup timer silently stopping** (as opposed to failing, which
+  *is* alarmed and was proven to fire during the 2026-08-20 audit). This is the single highest-likelihood
+  "you wouldn't find out" risk surfaced by this pass.
+- **Real gap confirmed: `.env` secrets (`SECRET_KEY`, RDS password) exist only as hand-typed values on the
+  EC2 instance, with no second copy anywhere.** If the instance is lost, these must be rotated, not
+  recovered. Highest-impact single gap this pass found; a Secrets Manager/SSM migration (already the
+  documented "later" plan in `docs/AWS_DEPLOYMENT_PLAN.md`) is the clear next step, not implemented this
+  pass (new AWS service integration was out of scope for a DR-documentation sprint).
+- **Net-new security-incident-response runbook** (`docs/runbooks/06-security-incident.md`) — this repo had
+  zero prior documentation for account/credential compromise or suspicious database activity. Covers 5
+  scenarios (application account, SSH, GitHub, AWS credentials, suspicious DB activity). Untested against a
+  real incident, as expected for a first pass. One concrete finding: the unused `EC2_DEPLOY_KEY` GitHub
+  Secret (dead since the self-hosted-runner pivot) should be retired, not just flagged again.
+
 ## Production-readiness audit and hardening (2026-08-20)
 
 Full audit — architecture, security, database, backups, monitoring, CI/CD, cost, failure modes, RPO/RTO —

@@ -7,7 +7,7 @@ re-stating existing docs. Where docs and reality disagreed, reality wins and the
 (`docs/RDS_MIGRATION.md`, `docs/S3_BACKUP_ARCHITECTURE.md`, `docs/AWS_STAGING_CHECKLIST.md`, `docs/CI_CD.md`
 — see their individual diffs this same day).
 
-## 0. Updates — SNS confirmed + permission gap fixed
+## 0. Updates — SNS confirmed, permission gap fixed, DR/IR sprint completed
 
 **This section contains dated addenda to the original 2026-08-20 audit.** Everything below it (§§1–13) is
 preserved exactly as written during the original audit earlier on 2026-08-20. This section documents
@@ -36,13 +36,45 @@ short version:
   Read-only endpoints stay open to any authenticated user.
 - **Implementation:** Tightened write-capable viewsets (occupants, occupancy, payments) to `[IsPropertyManager]`,
   simplified read-only viewsets to `[IsAuthenticated]`.
-- **Tested:** All 257/257 backend tests pass (36 payments, 53 occupants/occupancy, plus others). Added explicit
-  negative-path tests asserting 403 for non-managers trying to create/modify data.
+- **Tested:** All 260/260 backend tests pass (51 payments, 53 occupants/occupancy, plus others — 3 new
+  negative-path tests added). Added explicit negative-path tests asserting 403 for non-managers trying to
+  create/modify data.
 - **Safe for demo account:** `karosadmin` is a Django superuser; `IsPropertyManager` short-circuits True for
   any superuser, so the change will not lock it out during client review.
 
 **This closes the sole remaining blocker from the audit** — the system now satisfies the "READY WITH LIMITATIONS"
 verdict with both named blockers resolved.
+
+### Disaster recovery & incident response sprint (2026-08-24)
+
+A full DR/IR review was performed as a dedicated sprint — full record in `docs/DISASTER_RECOVERY.md` and
+`docs/runbooks/`. This directly answers §12's own "Non-blocking, recommended next steps" item calling for a
+real, timed DR drill (RPO evidenced, RTO not yet measured, as this review originally stated). Short version:
+
+- **RPO confirmed ≈24h worst case** — evidenced by real S3 backup objects present daily,
+  2026-08-19 through 2026-08-24, at the documented `02:30 UTC` cadence.
+- **RTO measured for the first time, not estimated**: a real S3 `pg_dump` backup was restored into a
+  disposable local database, verified across all 9 required record types at both the SQL and Django-ORM
+  layers. **Restore: 15 seconds. Full verification: under 1 minute.** Live database, dev database, and
+  existing backups untouched throughout — the restore script's own guardrail refuses to target the live
+  database name.
+- **RDS-specific CloudWatch alarms remain the one item from this review's §12 that is still open** — still
+  not added (see original §6/§12 below); the DR pass re-confirms this as a real, named gap rather than
+  letting it quietly age out of every subsequent review.
+- **New gaps found by the DR pass, not previously named in this review**: no alarm exists for the backup
+  timer silently stopping (as opposed to failing, which is alarmed and proven); `.env` secrets have no
+  second copy anywhere outside the EC2 instance (rotation-only recovery, not restoration, if the instance is
+  lost); RDS-native point-in-time-recovery is a documented AWS capability but an untested procedure for this
+  application specifically.
+- **Net-new security-incident-response runbook** (`docs/runbooks/06-security-incident.md`) — this review's
+  original scope did not include incident-response procedures at all; the DR pass found none existed
+  anywhere in the repo and wrote a full one covering 5 compromise scenarios. Undrilled, as expected for a
+  first pass.
+- **DR posture verdict: YELLOW** — real mechanisms exist and one is now proven with real timing and real
+  data, but RDS-native PITR, EC2-loss recovery, and the security-incident runbook all remain
+  documented-but-untested. This review's own "READY WITH LIMITATIONS" verdict is unchanged by the DR
+  pass — DR/IR posture is assessed and tracked separately in `docs/DISASTER_RECOVERY.md`, not folded into
+  the production-readiness verdict itself.
 
 ## 1. Architecture
 

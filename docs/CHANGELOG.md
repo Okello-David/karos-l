@@ -2,6 +2,37 @@
 
 ## [Unreleased]
 
+### Added — Disaster recovery & incident response documentation and testing (2026-08-24)
+- **New `docs/DISASTER_RECOVERY.md`**: full DR/IR review — RPO/RTO objectives with evidence, database/EC2/
+  application/deployment/data-corruption/backup-failure/security-incident/HTTPS-network recovery analysis,
+  the results of a real recovery exercise performed this pass, and a final posture verdict. **Posture:
+  YELLOW.**
+- **New `docs/runbooks/`**: 7 procedural runbooks (`01-ec2-failure.md`, `02-rds-recovery.md`,
+  `03-s3-backup-recovery.md`, `04-bad-deployment.md`, `05-database-corruption.md`,
+  `06-security-incident.md`, `07-https-nginx-failure.md`), each with symptoms/severity/immediate
+  actions/investigation/recovery/verification/rollback/escalation/lessons-learned sections.
+- **Real recovery test executed** (not just described): `scripts/restore-from-s3.sh --latest` run against
+  the real S3 backup bucket, restoring the newest backup (`karosl_db_2026-08-24_024045.sql.gz`) into a
+  disposable local database (`karosl_dr_test_20260824`) — never the live database, never the local dev
+  database. Verified via raw SQL and independently via the Django ORM (with `DB_NAME` overridden) across all
+  9 required record types: properties (5), sections (5), units (13), occupants (19), occupancies (17, 14
+  active), payments (16, summing to a coherent total), receipts (16), audit log (53), users (1). **Restore:
+  15 seconds. Full verification: under 1 minute.** Disposable database dropped after verification; live
+  database and existing backups untouched throughout.
+- **`docs/runbooks/06-security-incident.md` is entirely net-new content** — confirmed via full-corpus search
+  that no security-incident-response, credential-rotation-at-scale, or account-compromise documentation
+  existed anywhere in this repo before this pass. Covers 5 scenarios (compromised application account, SSH,
+  GitHub credentials, AWS credentials, suspicious database activity), reusing the one real precedent that
+  existed (`docs/CI_CD.md`'s CI-deploy-key rotation sequence) as the model.
+- **Real gaps found and documented, not smoothed over**: RDS-native point-in-time-recovery is untested
+  (would require a temporary second RDS instance, deliberately not created without asking first); no
+  CloudWatch alarm exists for the backup timer silently stopping (vs. failing, which is alarmed and proven);
+  `.env` secrets (`SECRET_KEY`, RDS password) exist only on the EC2 instance with no second copy anywhere —
+  recoverable only by rotation, not restoration, if the instance is lost; the new security-incident runbook
+  is undrilled; the stale, unused `EC2_DEPLOY_KEY` GitHub Secret should be retired.
+- Updated `docs/PROJECT_STATE.md`, `docs/RELEASE_PLAN.md`, `docs/PRODUCTION_READINESS_REVIEW.md` with the
+  DR sprint's findings and the next-sprint recommendation.
+
 ### Fixed — Permission gap on business endpoints (`IsAuthenticated | IsPropertyManager` no-op) (2026-08-24)
 - **Blocker resolved**: 12 viewsets across 8 apps (occupants, occupancy, payments, properties, sections, units,
   dashboard, reports) used `permission_classes = [IsAuthenticated | IsPropertyManager]`. Because `IsAuthenticated`
