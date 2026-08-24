@@ -148,8 +148,9 @@ and `BackupFailures` showed `Sum=1` within about a minute.
 
 ## 7. Alarms
 
-Four, each documented here with what it detects, its threshold, and the expected response — matching "not
-dozens of alarms":
+**Seven as of 2026-08-24** (four EC2/backup-level from the original 2026-08-19 setup, plus three
+RDS-specific added this pass), each documented here with what it detects, its threshold, and the expected
+response — matching "not dozens of alarms":
 
 | Alarm | Metric | Threshold | Notification | Expected response |
 |---|---|---|---|---|
@@ -157,32 +158,44 @@ dozens of alarms":
 | `karosl-staging-high-cpu` | `AWS/EC2 CPUUtilization` | >80% sustained 15min (3×5min) | SNS on ALARM and OK | `docker stats` / `docker compose logs` for a runaway process; a brief spike isn't alarming, sustained load might be a stuck request loop or abusive traffic. |
 | `karosl-staging-low-disk` | `KarosL/Staging disk_used_percent` (CloudWatch Agent, dimensions `path=/,device=nvme0n1p1,fstype=xfs,host=<internal-hostname>` — the agent auto-tags these; a dimensionless query finds nothing, a real gotcha hit and fixed during setup) | >85% for 2×5min | SNS on ALARM and OK | `docker system df` and prune old images; local backup dumps already auto-prune to 3 (`KEEP_LOCAL`). |
 | `karosl-staging-backup-failed` | `KarosL/Staging BackupFailures` (metric filter, §6) | ≥1 summed over 1 day (matches the nightly cadence) | SNS on ALARM and OK | `journalctl -u karosl-backup.service`, or the `/karosl/staging/backup` log group for the `stage=...` reason; see `docs/S3_BACKUP_ARCHITECTURE.md` for the manual backup/restore fallback. |
+| `karosl-staging-rds-low-storage` | `AWS/RDS FreeStorageSpace` (`DBInstanceIdentifier=karosl-staging-postgres`) | <2 GiB for 2×5min | SNS on ALARM and OK | Early warning, not necessarily an emergency — the instance has storage autoscaling to 30 GiB configured. Check for unexpected growth via `aws rds describe-db-instances` and CloudWatch Logs. |
+| `karosl-staging-rds-high-cpu` | `AWS/RDS CPUUtilization` (`DBInstanceIdentifier=karosl-staging-postgres`) | >80% for 3×5min (15min) | SNS on ALARM and OK | Check for a runaway/unindexed query via RDS Performance Insights or CloudWatch Logs; mirrors the EC2 high-cpu alarm's threshold for consistency. |
+| `karosl-staging-rds-high-connections` | `AWS/RDS DatabaseConnections` (`DBInstanceIdentifier=karosl-staging-postgres`) | >40 for 2×5min | SNS on ALARM and OK | Check for a connection leak (e.g. Gunicorn workers not releasing connections). `max_connections` for `db.t4g.micro` is ~112 (formula-based); 40 is well above the near-zero baseline observed at current scale, comfortably below exhaustion. |
 
 `disk_used_percent` and `BackupFailures` use `treat_missing_data`: `breaching` for disk (silence from the
-agent is itself worth flagging — it could mean the agent died), `notBreaching` for backup and the two EC2
-metrics (their absence isn't informative the same way — e.g. backup's daily period means "no failure event
-yet today" is the normal, expected state most of the day).
+agent is itself worth flagging — it could mean the agent died), `notBreaching` for backup, the two EC2
+metrics, and all three RDS metrics (their absence isn't informative the same way).
+
+**Thresholds for the three RDS alarms were chosen from real 24h metric data pulled via
+`aws cloudwatch get-metric-statistics` immediately before creating them** (2026-08-24), not guessed: free
+storage was averaging ~18.3 GiB free out of 20 GiB allocated (92%), CPU averaging 3.6% (max ~6%), and
+connections at ~0 (occasional single-connection blips) — consistent with a low-traffic staging/live-pilot
+app at its current scale. All three thresholds sit comfortably above that baseline while still catching a
+real problem well before resource exhaustion.
 
 ## 8. Notifications
 
 SNS topic `karosl-staging-alerts` (`arn:aws:sns:eu-north-1:908877263055:karosl-staging-alerts`), one email
-subscription (`grbsderrick@gmail.com`, pending the recipient's own click-to-confirm — AWS requires this,
-nothing on our side can complete it). All four alarms publish on both `ALARM` and `OK` transitions, so a
+subscription (`grbsderrick@gmail.com`). **Confirmed** — the subscription ARN was re-verified live via
+`aws sns list-subscriptions-by-topic` during the 2026-08-24 operational cleanup pass and is a real ARN, not
+`PendingConfirmation` (first confirmed 2026-08-20, per `docs/PRODUCTION_READINESS_REVIEW.md` §0). All seven
+alarms (four original + three RDS, added 2026-08-24) publish on both `ALARM` and `OK` transitions, so a
 recovery is visible too, not just the failure.
 
-**Verified the SNS-publish path works mechanically**, independent of the subscription's confirmation state:
-`aws cloudwatch set-alarm-state` was used to force `karosl-staging-backup-failed` to `ALARM` (the officially
-supported way to test an alarm's actions without waiting for real threshold data), confirmed via
-`describe-alarm-history` that the transition and its actions fired, then reset to `OK` afterward so the
-dashboard doesn't show a stale test result. Actual email delivery cannot be confirmed until the subscription
-is confirmed — that step needs the recipient, not this session.
+**Verified the SNS-publish path works mechanically for the new RDS alarms specifically**, not just re-trusted
+from the original four: `aws cloudwatch set-alarm-state` was used to force `karosl-staging-rds-high-cpu` to
+`ALARM` (the same officially-supported technique used previously for `karosl-staging-backup-failed`),
+confirmed via `describe-alarm-history` that the transition and its SNS action fired, then reset to `OK`
+afterward. See `docs/CHANGELOG.md` for the exact command/result.
 
 ## 9. Dashboard
 
 `KarosL-Staging`, five widgets: EC2 CPU, EC2 status check, disk used %, backup successes vs. failures
-(daily), and a combined alarm-status widget for all four alarms. Kept to one dashboard, one screen's worth
-of widgets — CloudWatch's first 3 dashboards are free regardless, so cost wasn't the constraint; legibility
-was.
+(daily), and a combined alarm-status widget for the original four alarms. Kept to one dashboard, one
+screen's worth of widgets — CloudWatch's first 3 dashboards are free regardless, so cost wasn't the
+constraint; legibility was. **Not updated this pass** to add the three new RDS alarms to the dashboard
+widget set — they're fully alarmed/notified via SNS regardless (§7/§8), and adding dashboard widgets was
+outside this pass's scope; noted here as a small, low-priority follow-up rather than silently left out.
 
 ## 10. Testing performed (Task 10) — all non-destructive
 

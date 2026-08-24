@@ -7,11 +7,35 @@ re-stating existing docs. Where docs and reality disagreed, reality wins and the
 (`docs/RDS_MIGRATION.md`, `docs/S3_BACKUP_ARCHITECTURE.md`, `docs/AWS_STAGING_CHECKLIST.md`, `docs/CI_CD.md`
 — see their individual diffs this same day).
 
-## 0. Updates — SNS confirmed, permission gap fixed, DR/IR sprint completed, RBAC hardening completed
+## 0. Updates — SNS confirmed, permission gap fixed, DR/IR sprint completed, RBAC hardening completed,
+operational cleanup completed
 
 **This section contains dated addenda to the original 2026-08-20 audit.** Everything below it (§§1–13) is
 preserved exactly as written during the original audit earlier on 2026-08-20. This section documents
 resolutions made after the audit's initial findings.
+
+### Operational Cleanup and Observability sprint (2026-08-24)
+
+This review's §12 "Non-blocking, recommended next steps" named RDS-specific CloudWatch alarms as a
+recommended-but-not-done item — **now done**: 3 new alarms (`FreeStorageSpace`, `CPUUtilization`,
+`DatabaseConnections`) added, thresholds from real metric data, wired to the existing SNS topic, and
+verified end-to-end (one manually forced to `ALARM`, confirmed the SNS publish action succeeded, reset to
+`OK`). SNS itself was re-confirmed live (unchanged since the 2026-08-20 confirmation).
+
+Also this pass: retired the `EC2_DEPLOY_KEY`/`EC2_USER` GitHub Secrets (confirmed zero remaining references
+anywhere first; `EC2_HOST` kept, still actively used) and the dead `scripts/ci-deploy-entrypoint.sh`; found
+and fixed a real gap in `recover-staging.sh` (it omitted the CloudWatch/RDS compose overlays the other
+deploy scripts correctly include — would have silently regressed the database connection and log shipping
+on a future recovery); fixed the known payment-toast cosmetic bug this review's own live smoke test found
+(§13's application-health row and its next-step list), plus the identical bug found in occupancy
+assignment; reviewed the old `db` container
+decommission timeline with the actual date math (2 days remained as of this sprint — correctly left
+untouched); reviewed `BackupService`'s local JSON exports and confirmed they remain a live, non-obsolete
+feature; performed a cost review and found the setup already lean.
+
+**This closes the one remaining "non-blocking, recommended" item this review's §12 named** (RDS-specific
+alarms) — everything else in that section was either already closed by a prior sprint or remains a
+deliberate, documented, lower-priority item (see `docs/RELEASE_PLAN.md`).
 
 ### RBAC hardening: a second, more serious permission finding, fixed (2026-08-24)
 

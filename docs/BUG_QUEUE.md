@@ -1,5 +1,21 @@
 # Bug Queue
 
+## Fixed 2026-08-24 — Payment/occupancy-assignment double success toast
+
+Root-caused precisely during the Operational Cleanup sprint. Confirmed **not** a duplicate database write —
+a single `POST /api/payments/` (or occupancy-assignment) call, but two `addToast` calls for it: the dialog
+component (`RecordPaymentDialog.jsx`/`AssignOccupancyDialog.jsx`) fires its own success toast, and
+`OccupantDetail.jsx`'s parent callback (`handlePaymentRecorded`/`handleAssigned`) *also* fired one for the
+same action. `Toast.jsx` has no dedup logic, so both simply rendered. This bug was specific to
+`OccupantDetail.jsx` — the same dialogs used from `Payments.jsx`/`Dashboard.jsx` don't have this issue,
+since those parent callbacks never duplicated the toast.
+
+**Fixed**: removed the two redundant parent-level `addToast` calls in `OccupantDetail.jsx`, keeping the
+dialogs' own calls as the single source of truth — matches the pattern already correctly used elsewhere in
+the codebase (dialog owns its own success feedback). Zero business-logic/API changes. New regression test
+`frontend/src/test/OccupantDetail.test.jsx`, verified to actually catch the bug (temporarily reintroduced
+it, confirmed the test failed, restored the fix, confirmed it passed).
+
 ## Fixed 2026-08-24 — Privilege escalation via user-account management (`AdminUserViewSet`)
 
 **Critical finding from the RBAC hardening sprint** (see `docs/ARCHITECTURE_DECISIONS.md` AD-002,

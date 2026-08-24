@@ -2,6 +2,60 @@
 
 ## [Unreleased]
 
+### Added / Fixed — Operational Cleanup and Observability sprint (2026-08-24)
+- **RDS monitoring added**: 3 new CloudWatch alarms — `karosl-staging-rds-low-storage`
+  (`FreeStorageSpace` < 2 GiB, 2×5min), `karosl-staging-rds-high-cpu` (`CPUUtilization` > 80%, 3×5min),
+  `karosl-staging-rds-high-connections` (`DatabaseConnections` > 40, 2×5min) — thresholds chosen from real
+  24h metric data pulled via `aws cloudwatch get-metric-statistics` immediately before creating them (free
+  storage averaging ~18.3 GiB/20 GiB, CPU averaging 3.6%, connections ~0), not guessed. All three wired to
+  the existing SNS topic (`karosl-staging-alerts`). **Verified end-to-end**: `karosl-staging-rds-high-cpu`
+  manually forced to `ALARM` via `aws cloudwatch set-alarm-state`, `describe-alarm-history` confirmed the
+  SNS publish action `"actionState":"Succeeded"`, then reset to `OK`. Total alarms: 7.
+- **SNS re-confirmed** live via `aws sns list-subscriptions-by-topic` (real ARN, not `PendingConfirmation`)
+  — no action needed, no duplicate subscription created.
+- **Obsolete SSH CI/CD infrastructure retired**: confirmed via full workflow reads that `EC2_DEPLOY_KEY`
+  and `EC2_USER` have zero references anywhere in current workflows/scripts (the self-hosted runner's
+  `deploy` job runs `deploy-staging.sh --pull` directly, no SSH hop) — `EC2_HOST` is the one secret still
+  actively used (by the `smoke-test` job) and was kept. Deleted `scripts/ci-deploy-entrypoint.sh` (confirmed
+  dead — the SSH forced-command entrypoint the old key used to invoke) and the `EC2_DEPLOY_KEY`/`EC2_USER`
+  GitHub Secrets. Fixed two stale claims in `docs/CI_CD.md` found during this review (an inaccurate
+  `webfactory/ssh-agent` reference that never matched the actual workflow, and SSH-specific troubleshooting
+  entries for a mechanism that no longer exists).
+- **Real bug found and fixed**: `scripts/recover-staging.sh`'s container-recreation step omitted the
+  CloudWatch and RDS compose overlays that `deploy-staging.sh`/`rollback-staging.sh` both correctly include
+  — a real risk that a future recovery, triggered while RDS is live, would silently regress the backend's
+  database connection back to the local container and drop CloudWatch log shipping. Fixed with the same
+  conditional overlay-inclusion logic already used in the other two scripts; verified the logic produces the
+  correct file list for both the RDS-live and pre-RDS cases.
+- **Real bug fixed**: the known payment-recording double-success-toast issue
+  (`docs/PRODUCTION_READINESS_REVIEW.md`, found 2026-08-20) was root-caused precisely —
+  `OccupantDetail.jsx`'s `handlePaymentRecorded` callback fired its own `addToast` in addition to the one
+  `RecordPaymentDialog` already fires for the same single API call. **Confirmed not a duplicate write**
+  (single `POST /api/payments/` call; `Toast.jsx` has no dedup, so both calls simply both rendered). The
+  identical pattern also existed for occupancy assignment in the same file
+  (`handleAssigned`/`AssignOccupancyDialog`) — fixed both, removing the redundant parent-level `addToast`
+  calls. New regression test `frontend/src/test/OccupantDetail.test.jsx` — verified it actually catches the
+  regression by temporarily reintroducing the bug, confirming the test failed, then restoring the fix and
+  confirming it passed again.
+- **`.env.example` drift fixed**: added `DB_SSLMODE` (read by `settings.py`, required for the RDS
+  connection, previously entirely absent from the example file); replaced a stale "Database (unchanged from
+  local... `DB_HOST=db`)" comment block that predated the RDS migration with guidance for both the
+  container-Postgres and RDS setups.
+- **Backup JSON exports (`BackupService`) reviewed**: confirmed still a live, working, Super-Admin-gated
+  feature (not obsolete/dead code), genuinely persisted via the `backend_backups` Docker volume. Documented
+  (not implemented) a proposed future improvement — optionally mirroring its JSON output to S3 — since no
+  evidence of an active need exists. Separately, untracked 153 backup JSON files
+  (`git rm --cached`, `backend/backups/`) that predated a 2026-07-29 `.gitignore` fix and were still
+  tracked in git; the files remain on disk, only removed from version control.
+- **Old PostgreSQL container**: checked again with the actual date math — 7-day validation window from the
+  2026-08-19 RDS cutover closes 2026-08-26, so as of this sprint (2026-08-24) 2 days remained. Left
+  untouched, per the documented plan.
+- **Cost review**: confirmed already lean — no NAT Gateway, no load balancer, no unused Elastic IP, minimal
+  EBS/CloudWatch-log footprint. Nothing found requiring action. The unrelated `dc-intern-backend`
+  instance/EIP confirmed present but not touched, per explicit scope.
+- **Testing**: full backend suite 282/282, frontend lint clean (pre-existing warnings only), frontend tests
+  53/53 (52 baseline + 1 new), frontend build clean.
+
 ### Fixed — RBAC hardening: user-management privilege escalation, named permission classes (2026-08-24)
 - **Critical fix**: `AdminUserViewSet` (`backend/apps/administration/views.py`) required only
   `IsPropertyManager` for full user-account management (create/update/deactivate/list). Its update path

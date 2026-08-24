@@ -36,11 +36,18 @@ confirmed to have zero references to the `karosl-staging` label. `deploy-staging
 only trigger is `push: branches: [cloud-deployment]` — no `pull_request` trigger of any kind, so only
 someone who can already push to that branch can reach the runner.
 
-`EC2_DEPLOY_KEY`/`EC2_USER` (the old SSH deploy key and its forced-command entrypoint,
-`scripts/ci-deploy-entrypoint.sh`) are no longer used by CI as of this change, but were deliberately left
-in place rather than revoked in the same pass — **recommended follow-up**: retire the deploy key
-(`gh secret delete EC2_DEPLOY_KEY`, remove its `authorized_keys` line) once the self-hosted runner has
-proven itself over a longer window.
+**Retired 2026-08-24**: `EC2_DEPLOY_KEY`/`EC2_USER` (the old SSH deploy key and its forced-command
+entrypoint, `scripts/ci-deploy-entrypoint.sh`) were no longer used by CI as of this change, and were
+confirmed to have zero remaining references anywhere in `.github/workflows/*.yml` or any script before
+removal — the self-hosted runner deploy job runs `deploy-staging.sh --pull` directly on the instance, no SSH
+hop of any kind. `scripts/ci-deploy-entrypoint.sh` was deleted; the `EC2_DEPLOY_KEY` and `EC2_USER` GitHub
+Secrets were deleted (`gh secret delete`). **`EC2_HOST` was deliberately kept** — it's still actively read
+by the `smoke-test` job (`curl ... secrets.EC2_HOST`), unrelated to the old SSH mechanism. **Known
+limitation**: the old key's corresponding `authorized_keys` line on the EC2 instance itself (if it still
+exists there) was not verified or removed as part of this — that requires direct SSH access to the
+instance, which the environment doing this cleanup pass did not have (correctly — the security group only
+allows the account owner's own `/32`). Recommended manual follow-up for the account owner: `ssh` in and
+check `~/.ssh/authorized_keys` for a forced-command line referencing the deleted key, remove it if present.
 
 **A second real bug was caught by this run**, after the network fix: `scripts/deploy-staging.sh`'s
 password sanity check (§5/§14 below) required `POSTGRES_PASSWORD` to equal `DB_PASSWORD` unconditionally —
@@ -275,15 +282,21 @@ individually in the run summary, not collapsed into one opaque "CI" status.
 
 ## 13. Secrets and security review (Task 12)
 
-| Check | Status |
+**This table describes the review as performed on 2026-08-19, against the original SSH-deploy-key design —
+kept as a historical record (see §0). It is stale in two specific ways as of the 2026-08-24 operational
+cleanup: `deploy-staging.yml` never actually used `webfactory/ssh-agent` (no such step exists anywhere in
+the current or historical workflow — that line was inaccurate even at the time), and the GitHub Secrets set
+changed on 2026-08-24 when `EC2_DEPLOY_KEY`/`EC2_USER` were retired (§0).**
+
+| Check | Status (as of 2026-08-19) |
 |---|---|
 | `.gitignore` covers `.env`, `backend/.env`, `frontend/.env` | ✅ already true, unchanged |
 | No `.env` committed | ✅ confirmed via `git log --all -p -- '*.env'`, clean |
 | No private key committed | ✅ the deploy key was generated to a scratch path outside the repo, never written into it |
 | No passwords in scripts | ✅ every script in this repo reads credentials from the container's own environment or GitHub Secrets, never hardcodes or echoes them |
-| No tokens printed in CI logs | ✅ GitHub automatically masks registered secret values in logs; `deploy-staging.yml` never echoes `EC2_DEPLOY_KEY` and loads it via `webfactory/ssh-agent`, not a written-out file the log could reference |
+| No tokens printed in CI logs | ✅ GitHub automatically masks registered secret values in logs; `deploy-staging.yml` never echoed `EC2_DEPLOY_KEY` |
 | Deploy key scope | ✅ forced-command restricted (§4) — cannot be used for arbitrary shell access even if leaked |
-| GitHub Secrets | ✅ exactly `EC2_HOST`/`EC2_USER`/`EC2_DEPLOY_KEY`, confirmed via `gh secret list` — nothing extra |
+| GitHub Secrets | `EC2_HOST`/`EC2_USER`/`EC2_DEPLOY_KEY`, confirmed via `gh secret list` at the time — **as of 2026-08-24, only `EC2_HOST` remains** (§0) |
 
 ## 14. Testing performed before enabling automation (Task 13)
 
@@ -322,11 +335,17 @@ individually in the run summary, not collapsed into one opaque "CI" status.
 
 ## 15. Troubleshooting
 
-- **Deploy step fails at the SSH connection** — confirm `EC2_HOST` matches the instance's current public IP
-  (`aws ec2 describe-instances ...`); the instance has no Elastic IP (§4).
-- **Deploy step connects but nothing happens / wrong command runs** — the key is forced-command restricted;
-  confirm `~/.ssh/authorized_keys` on the instance has the `command="...ci-deploy-entrypoint.sh"` line
-  exactly, and that the script is executable.
+**The two SSH-specific entries that used to be here ("deploy step fails at the SSH connection", "deploy
+step connects but nothing happens") were removed 2026-08-24** — they described the retired SSH deploy
+mechanism (§0) and no longer apply; the `deploy` job runs directly on the self-hosted runner, no SSH hop.
+
+- **Self-hosted runner offline / deploy job stuck queued** — check the runner's systemd service is running
+  on the instance (`sudo systemctl status actions.runner.*`), and that the instance itself is up
+  (`./scripts/verify-staging.sh` or `aws ec2 describe-instances`).
+- **External smoke test fails specifically** — it's the one job still on a GitHub-hosted runner and reads
+  `EC2_HOST` via `curl`; confirm that secret matches the instance's current public IP
+  (`aws ec2 describe-instances ...`) — the instance has no Elastic IP, so this can go stale after a
+  stop/start (§0).
 - **HTTPS or CloudWatch logging silently stops after any deploy** — check `docker compose ps` shows port
   443 published and check `docker inspect karosl-frontend-1 --format '{{.HostConfig.LogConfig.Type}}'` shows
   `awslogs`; if not, `COMPOSE_FILES` in `deploy-staging.sh`/`rollback-staging.sh` didn't pick up the overlay
@@ -341,6 +360,6 @@ individually in the run summary, not collapsed into one opaque "CI" status.
 
 ## 16. Cost
 
-No new AWS resources — GitHub Actions runners are free-tier for a public repo, the deploy step is plain SSH
-(no new AWS API calls beyond what `backup-to-s3.sh` already makes during the pre-deploy backup). Zero
-marginal AWS cost from this work.
+No new AWS resources — GitHub Actions runners are free-tier for a public repo; the self-hosted runner is a
+systemd service on the already-running EC2 instance, not a separate resource. No new AWS API calls beyond
+what `backup-to-s3.sh` already makes during the pre-deploy backup. Zero marginal AWS cost from this work.

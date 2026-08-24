@@ -255,6 +255,11 @@ separate, deliberate decision — not bundled into this sprint. Removing them me
 `docker compose stop db` and `docker compose rm db` followed by `docker volume rm karosl_postgres_data`,
 none of which has been done.
 
+**Checked again during the 2026-08-24 operational cleanup sprint, with the actual date math, not a
+guess**: migration cutover was 2026-08-19; the 7-day window closes 2026-08-26; as of 2026-08-24, **2 days
+remain**. **Window not yet complete — left untouched, per this doc's own recommendation.** No code or
+infrastructure change made for this. Revisit on/after 2026-08-26.
+
 ## Cost
 
 | Item | Rate (eu-north-1) | Monthly |
@@ -285,7 +290,10 @@ alert thresholds carry forward unchanged at the new ceiling.
 
 ## Next sprint
 
-- Remove the container/volume once the 7-day validation window has passed cleanly.
-- Consider RDS Performance Insights or a CloudWatch alarm on RDS free storage / CPU / connections
-  (`docs/AWS_DEPLOYMENT_PLAN.md` Phase 5 already names this).
+- Remove the container/volume once the 7-day validation window has passed cleanly — **not yet eligible as
+  of 2026-08-24, 2 days remaining** (see "Old database — when it's safe to remove", above).
+- ~~Consider RDS Performance Insights or a CloudWatch alarm on RDS free storage / CPU / connections~~ —
+  **done 2026-08-24**: three RDS-specific CloudWatch alarms added (`FreeStorageSpace`, `CPUUtilization`,
+  `DatabaseConnections`), wired to the existing SNS topic, verified end-to-end. See
+  `docs/CLOUDWATCH_MONITORING.md` §7.
 - The purchased-domain item (standing, unrelated to this migration) remains open.

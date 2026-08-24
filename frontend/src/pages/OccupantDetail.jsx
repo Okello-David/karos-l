@@ -75,14 +75,16 @@ export default function OccupantDetail() {
   }
 
   const handleAssigned = () => {
-    addToast(`${occupant.full_name} assigned to unit successfully.`, { type: 'success' })
+    // AssignOccupancyDialog already fires its own success toast on a successful
+    // assignment — this callback only needs to close the dialog and refresh data.
     setAssignOpen(false)
     refetchOcc()
     refetchHist()
   }
 
   const handlePaymentRecorded = () => {
-    addToast('Payment recorded successfully.', { type: 'success' })
+    // RecordPaymentDialog already fires its own success toast on a successful
+    // payment — this callback only needs to close the dialog and refresh data.
     setRecordPmtOpen(false)
     refetchBal()
     refetchPmt()

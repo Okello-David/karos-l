@@ -120,6 +120,19 @@ Reviewed what KarosL persists to disk today, ahead of introducing S3:
 
 **Bottom line:** the only genuine "local disk that needs to become S3 later" item is the backup JSON files. Everything else is either static application code (stays local) or already generated in-memory with no disk footprint. No S3 integration was implemented in this pass, per scope — this section only documents the plan.
 
+**Re-reviewed during the 2026-08-24 operational cleanup sprint**: confirmed `BackupService`'s local JSON
+export is still a live, working, Super-Admin-gated feature (not dead code) — reachable at
+`frontend/src/pages/Backup.jsx`, gated by `CanManageBackups`
+(`docs/SECURITY_HARDENING.md`), genuinely persisted via the `backend_backups` volume as documented above. It
+remains intentionally narrower in scope than the S3 `pg_dump` pipeline (§12) — that hasn't changed and isn't
+being changed. **Proposed migration path, documented only, not implemented this pass**: `BackupService.create_backup`
+could additionally upload its JSON output to S3 (same bucket, a new prefix such as `manual-backups/`) as a
+durability improvement, without changing its restore behavior or 8-model scope — no evidence this is an
+active need yet (the volume-backed local storage has worked fine), so it wasn't built speculatively.
+**Separately fixed this pass**: 153 backup JSON files that predated a 2026-07-29 `.gitignore` fix
+(`backend/backups/`) were still tracked in git — `git rm --cached` removed them from tracking (they remain
+on disk; nothing was deleted).
+
 ## 7. Health Checks
 
 - **Endpoint:** `GET /api/health/` (`apps/core/views.py`) — no authentication required (container orchestrators can't hold a token). Runs `SELECT 1` against the database; returns `{"status": "ok", "database": "ok"}` / HTTP 200 when healthy, `{"status": "degraded", "database": "unavailable"}` / HTTP 503 otherwise.

@@ -222,9 +222,25 @@ fi
 # --- 7. Recreate containers -------------------------------------------------
 # This is the step that actually fixes things. Everything above is undone if
 # the containers keep running with the old hostname/IP in their stored env.
-log "Recreating containers with the HTTPS overlay..."
-remote "cd $REMOTE_DIR && docker compose -f docker-compose.yml -f docker-compose.https.yml up -d" 2>&1 \
-    | tail -4 | sed 's/^/    /'
+#
+# Compose file selection MUST match deploy-staging.sh/rollback-staging.sh exactly
+# (base + https always; cloudwatch and rds overlays if present) — recreating
+# with a narrower file set than those two scripts use would silently drop
+# CloudWatch log shipping and, if RDS is live, reset DB_HOST/DB_PORT back to
+# the hardcoded container-Postgres defaults in docker-compose.yml. Determined
+# on the instance itself, not locally, since it depends on the instance's own
+# .env and which overlay files exist in its checkout.
+log "Recreating containers with the correct overlay set..."
+remote "cd $REMOTE_DIR && \
+COMPOSE_FILES=(-f docker-compose.yml -f docker-compose.https.yml); \
+[ -f docker-compose.cloudwatch.yml ] && COMPOSE_FILES+=(-f docker-compose.cloudwatch.yml); \
+_db_host=\$(grep -E '^DB_HOST=' .env | head -1 | cut -d= -f2- || true); \
+if [ -f docker-compose.rds.yml ] && [ -n \"\$_db_host\" ] && [ \"\$_db_host\" != \"db\" ]; then \
+    COMPOSE_FILES+=(-f docker-compose.rds.yml); \
+fi; \
+echo \"Compose files: \${COMPOSE_FILES[*]}\"; \
+docker compose \"\${COMPOSE_FILES[@]}\" up -d" 2>&1 \
+    | tail -6 | sed 's/^/    /'
 
 # --- 8. Retire orphaned certificates -----------------------------------------
 # ORDER MATTERS. The old certificates must outlive the old containers: nginx

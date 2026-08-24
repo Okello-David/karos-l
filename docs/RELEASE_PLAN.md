@@ -1,5 +1,31 @@
 # Release Plan
 
+## Operational Cleanup and Observability sprint — 2026-08-24
+
+Infrastructure/operations hygiene, third same-day sprint after the permission-gap fix and RBAC hardening
+(both below). Full record: `docs/CLOUDWATCH_MONITORING.md`, `docs/CI_CD.md`, `docs/RDS_MIGRATION.md`,
+`docs/DEVOPS.md`.
+
+**Delivered**: 3 new RDS CloudWatch alarms (storage/CPU/connections), thresholds from real metric data,
+verified end-to-end via a manually-forced alarm; SNS re-confirmed live; obsolete SSH CI/CD credentials
+retired (`EC2_DEPLOY_KEY`/`EC2_USER` deleted, `EC2_HOST` kept — still in active use); a real operational
+risk in `recover-staging.sh` found and fixed (it silently would have dropped the RDS connection and
+CloudWatch logging on a future recovery); the known payment-toast bug root-caused and fixed (plus the
+identical bug in occupancy assignment, found in the same pass); `.env.example` drift fixed; backup JSON
+exports reviewed and confirmed not obsolete, with a small, safe git-tracking cleanup (153 stale files
+untracked, none deleted from disk); a cost review confirming the setup is already lean.
+
+**Deliberately not done**: removing the old PostgreSQL container — its 7-day validation window (closes
+2026-08-26) had 2 days remaining as of this sprint. Revisit on/after that date, not before.
+
+### Recommendation for the next sprint
+Once the validation window closes (2026-08-26): decommission the old `db` container/volume, per the
+already-documented procedure in `docs/RDS_MIGRATION.md`. Otherwise, no urgent authorization or
+infrastructure gaps remain open from any of this session's three sprints — the next natural piece of work
+is either product-driven (following client feedback, per standing project context) or the lower-priority
+items already named in `docs/DISASTER_RECOVERY.md`'s next-sprint recommendation (backup-silent-stop
+monitoring, secrets into Secrets Manager/SSM).
+
 ## RBAC hardening sprint — 2026-08-24
 
 Follow-up authorization audit on top of the same-day permission-gap fix below — full record:

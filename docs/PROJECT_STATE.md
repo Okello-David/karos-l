@@ -1,5 +1,51 @@
 # Project State
 
+## Operational Cleanup and Observability sprint (2026-08-24)
+
+Infrastructure/operations hygiene sprint, third of three same-day sprints (after the permission-gap fix and
+RBAC hardening, both below). Every finding backed by a live AWS CLI check or a full file read during
+planning, not assumed from memory.
+
+- **RDS monitoring added**: 3 new CloudWatch alarms (`karosl-staging-rds-low-storage`,
+  `-rds-high-cpu`, `-rds-high-connections`), thresholds chosen from real 24h metric data pulled
+  immediately beforehand, wired to the existing SNS topic. **Verified end-to-end**, not just created: one
+  alarm was manually forced into `ALARM` via `aws cloudwatch set-alarm-state`, confirmed via
+  `describe-alarm-history` that the SNS publish action `Succeeded`, then reset to `OK`. Total alarms: 7.
+  See `docs/CLOUDWATCH_MONITORING.md`.
+- **SNS re-confirmed live** (`aws sns list-subscriptions-by-topic`, real ARN, not `PendingConfirmation`) —
+  no action needed, no duplicate subscription created.
+- **Obsolete SSH CI/CD infrastructure retired**: `scripts/ci-deploy-entrypoint.sh` deleted (confirmed dead
+  — zero references in any current workflow); `EC2_DEPLOY_KEY`/`EC2_USER` GitHub Secrets deleted (confirmed
+  zero remaining references anywhere in the repo first). `EC2_HOST` deliberately kept — still actively read
+  by the `smoke-test` job. **Known limitation**: the old key's `authorized_keys` line on the EC2 instance
+  itself could not be verified/removed from this environment (no SSH reachability here, correctly, per the
+  security group's `/32` restriction) — manual follow-up noted for the account owner.
+- **Old PostgreSQL container: left untouched.** Validation window (7 days from the 2026-08-19 RDS cutover)
+  closes 2026-08-26 — **2 days remained** as of this sprint. Per the documented plan, not removed; revisit
+  on/after 2026-08-26.
+- **Two small, real bugs found and fixed while investigating the brief's literal asks, not just the asks
+  themselves**:
+  - `scripts/recover-staging.sh`'s container-recreation step omitted the CloudWatch/RDS compose overlays
+    that `deploy-staging.sh`/`rollback-staging.sh` both correctly include — a real risk that a future
+    recovery, if triggered while RDS is live, would silently regress the database connection back to the
+    old local container and drop CloudWatch log shipping. Fixed with the same conditional overlay logic
+    already used elsewhere.
+  - The known payment-recording double-toast bug (`docs/PRODUCTION_READINESS_REVIEW.md`) was root-caused
+    precisely: `OccupantDetail.jsx`'s parent callback duplicated a toast `RecordPaymentDialog` already
+    fires. The identical pattern also existed for occupancy assignment, same file — fixed both. New
+    regression test (`frontend/src/test/OccupantDetail.test.jsx`), verified it actually catches the bug by
+    temporarily reintroducing it and confirming the test fails, then restoring the fix.
+- **`.env.example` drift fixed**: added `DB_SSLMODE` (previously entirely absent despite being required for
+  the RDS connection); replaced a stale pre-RDS "Database" comment block.
+- **Backup JSON exports reviewed**: confirmed still a live, working, Super-Admin-gated feature, not
+  obsolete — proposed (not implemented) an optional future S3 mirror. 153 stale git-tracked backup JSON
+  files (predating a 2026-07-29 `.gitignore` fix) untracked via `git rm --cached` — files remain on disk.
+- **Cost review**: already lean — no NAT Gateway, no load balancer, no unused Elastic IP, minimal EBS/log
+  storage. Nothing found requiring action. The unrelated `dc-intern-backend` instance/EIP confirmed present
+  but not touched, per explicit scope.
+- **Testing**: full backend suite green, frontend lint/test/build green including the new regression test,
+  full CI/CD pipeline re-verified end-to-end post-secret-removal.
+
 ## RBAC hardening sprint (2026-08-24)
 
 Follow-up sprint on top of the same-day permission-gap fix (below) — a formal 3-role authorization model,
