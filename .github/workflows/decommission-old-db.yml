@@ -1,0 +1,56 @@
+# KarosL — one-time (repeatable if ever needed again) manual action to stop
+# and remove the old container-Postgres `db` service, kept running since the
+# 2026-08-19 RDS migration as a same-day rollback safety net
+# (docs/RDS_MIGRATION.md). Do not run before the documented 7-day validation
+# window has passed cleanly: 2026-08-19 + 7 days = 2026-08-26.
+#
+# Manual trigger only (workflow_dispatch) — this is a deliberate, infrequent
+# operational action, not something any push should ever set off. Requires
+# typing a literal confirmation string as an extra guard against an
+# accidental "Run workflow" click or a scripted trigger with a typo.
+#
+# Runs on the SAME self-hosted runner as deploy-staging.yml (label
+# `karosl-staging`, on the instance itself) — no SSH needed, same security
+# invariant applies (see deploy-staging.yml's header): never add a
+# pull_request trigger to this file.
+#
+# The actual logic lives in scripts/decommission-old-db.sh, which has its
+# own preconditions (refuses unless .env's DB_HOST genuinely points at RDS,
+# and unless the app's own health check is currently green) and never
+# deletes the postgres_data volume — only the container. See that script's
+# header for the full detail.
+
+name: Decommission old db container
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DECOMMISSION to confirm you want to stop and remove the old db container (the data volume is kept)'
+        required: true
+
+permissions:
+  contents: read
+
+# Shares the deploy-staging.yml queue rather than a separate one, so this
+# never runs concurrently with an in-flight deploy/rollback/recovery.
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: false
+
+jobs:
+  decommission:
+    name: Stop and remove the old db container
+    runs-on: [self-hosted, karosl-staging]
+    steps:
+      - name: Verify the confirmation input
+        run: |
+          if [ "${{ inputs.confirm }}" != "DECOMMISSION" ]; then
+            echo "::error::confirm input must be exactly 'DECOMMISSION' — got '${{ inputs.confirm }}'. Aborting, nothing was touched."
+            exit 1
+          fi
+
+      - name: Run the decommission script (runs directly on the instance — no SSH hop needed)
+        run: |
+          cd ~/apps/karosl
+          ./scripts/decommission-old-db.sh
