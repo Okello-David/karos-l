@@ -2,6 +2,49 @@
 
 ## [Unreleased]
 
+### Fixed — RBAC hardening: user-management privilege escalation, named permission classes (2026-08-24)
+- **Critical fix**: `AdminUserViewSet` (`backend/apps/administration/views.py`) required only
+  `IsPropertyManager` for full user-account management (create/update/deactivate/list). Its update path
+  (`AdminUserCreateSerializer`) has a writable `password` field — `is_superuser` was already read-only, so a
+  Property Manager couldn't flip that flag directly, but **could reset any user's password, including a
+  superuser's, via `PATCH /api/admin/users/<id>/`, then log in as that account.** A live
+  privilege-escalation path, found and fixed this pass. Now requires `CanManageUsers` (`IsSuperAdmin`).
+- **New named, per-capability permission classes** in `backend/apps/core/permissions.py`:
+  `CanManageProperty`, `CanManageOccupants`, `CanManageOccupancy`, `CanRecordPayment`, `CanManageUsers`,
+  `CanViewAuditLog`, `CanManageBackups` — thin subclasses of `IsPropertyManager`/`IsSuperAdmin`, no new
+  authorization logic, applied across every business/admin/audit/backup viewset so each states its actual
+  intent instead of a generic role name repeated at every call site.
+- **Real bug fixed**: `OccupancyViewSet.summary` (aggregate dashboard stats — occupancy counts, rate,
+  per-property breakdown, no per-occupant detail) had been accidentally swept into the Property-Manager-only
+  gate along with occupancy's write actions during the earlier same-day permission-gap fix. Since the
+  Dashboard/Overview page depends on this endpoint for every authenticated user, this would have broken the
+  landing page for any Staff-tier user. Split out via `get_permissions()` to stay `IsAuthenticated`.
+- **Formal 3-role RBAC matrix documented**: Super Administrator, Property Manager, Staff — new
+  `docs/ARCHITECTURE_DECISIONS.md` (4 dated decision records: the role model, the AdminUserViewSet fix,
+  property-scoping as a documented limitation not built this sprint, and why no object-level checks were
+  added) and new `docs/SECURITY_HARDENING.md` (full endpoint-to-permission map, the finding, testing
+  summary, known limitations).
+- **Property-level scoping**: investigated and confirmed no `User`↔`Property` data model exists anywhere
+  (no FK/M2M, checked models and migrations). Documented as a known, deliberate limitation rather than built
+  this sprint — every Property Manager is equally trusted org-wide today, matching a single-organization,
+  multi-property tool rather than multi-tenant SaaS. Flagged as a future product decision if delegated
+  per-property managers are ever needed. See `docs/ARCHITECTURE_DECISIONS.md` AD-003.
+- **Expanded test coverage**: new `AuthorizationMatrixTests` in `backend/apps/core/tests.py` — cross-role
+  (unauthenticated/Staff/Property Manager/Super Admin) coverage including explicit elevation-prevention
+  tests (a plain authenticated user never gains write access merely by being authenticated) and
+  ID-substitution tests (a real, existing object's ID does not bypass a permission check that would
+  otherwise deny access — including the specific AdminUserViewSet password-reset path, verified via a
+  before/after password-hash comparison). New regression tests in
+  `backend/apps/administration/tests.py` for the AdminUserViewSet fix specifically. **Full backend suite:
+  281/281** (260 baseline + 21 new).
+- **Frontend permission alignment** (UX only — backend authorization remains authoritative): new
+  `frontend/src/utils/permissions.js` reads the already-returned `is_superuser`/`groups` fields from
+  `authService.getUser()`. Administration's Users/Audit Log tabs hidden from non-superusers
+  (`Administration.jsx`); Occupants/Payments/Administration/Backup nav items hidden from users who can't
+  access them at all (`Sidebar.jsx`); Dashboard's write-only quick actions and Property-Manager-gated stat
+  card/table sections hidden or given an "unavailable" state for Staff, rather than shown and erroring on
+  use (`Dashboard.jsx`). Frontend test suite: 52/52 passing; build clean.
+
 ### Added — Disaster recovery & incident response documentation and testing (2026-08-24)
 - **New `docs/DISASTER_RECOVERY.md`**: full DR/IR review — RPO/RTO objectives with evidence, database/EC2/
   application/deployment/data-corruption/backup-failure/security-incident/HTTPS-network recovery analysis,

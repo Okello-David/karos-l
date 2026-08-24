@@ -1,5 +1,31 @@
 # Bug Queue
 
+## Fixed 2026-08-24 — Privilege escalation via user-account management (`AdminUserViewSet`)
+
+**Critical finding from the RBAC hardening sprint** (see `docs/ARCHITECTURE_DECISIONS.md` AD-002,
+`docs/SECURITY_HARDENING.md`), separate from and more serious than the same-day permission-gap fix above.
+
+`AdminUserViewSet` (`backend/apps/administration/views.py`) required only `IsPropertyManager` for full
+user-account management — create, update, deactivate, list. Its update path uses
+`AdminUserCreateSerializer`, which has a writable `password` field. `is_superuser` was already read-only on
+that serializer, so a Property Manager could not directly grant themselves superuser status — **but they
+could reset any user's password, including a superuser's, via `PATCH /api/admin/users/<id>/`, then log in
+as that account.** A live privilege-escalation path, unrelated to the `IsAuthenticated | IsPropertyManager`
+no-op gap.
+
+**Fixed** by changing `AdminUserViewSet.permission_classes` to `CanManageUsers` (`IsSuperAdmin`) — a
+Property Manager must never reach user-account management. Regression tests added in
+`backend/apps/administration/tests.py` (`test_users_property_manager_forbidden_*`, including a specific
+password-reset test with a before/after hash comparison) and `backend/apps/core/tests.py`
+(`AuthorizationMatrixTests`). Full backend suite: 281/281.
+
+This sprint also introduced named, per-capability permission classes (`CanManageProperty`,
+`CanManageOccupants`, `CanManageOccupancy`, `CanRecordPayment`, `CanManageUsers`, `CanViewAuditLog`,
+`CanManageBackups` in `backend/apps/core/permissions.py`) replacing raw `IsPropertyManager`/`IsSuperAdmin`
+references at each call site, and split `OccupancyViewSet.summary` out to `IsAuthenticated` (was
+accidentally swept into the Property-Manager-only gate along with occupancy's write actions, which would
+have broken the Dashboard/Overview page for every Staff-tier user).
+
 ## RC Final Stabilization Closeout (2026-07-04, see `docs/RELEASE_PLAN.md`)
 
 Closes out the remaining items from the Release Candidate Verification Pass below: the one deferred destructive-action verification (Backup Restore) and the two deferred Medium/Low bugs. Nothing here is a new business feature; scope was strictly the four items called out in the closeout brief.

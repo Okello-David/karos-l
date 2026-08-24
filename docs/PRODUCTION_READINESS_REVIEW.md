@@ -7,11 +7,35 @@ re-stating existing docs. Where docs and reality disagreed, reality wins and the
 (`docs/RDS_MIGRATION.md`, `docs/S3_BACKUP_ARCHITECTURE.md`, `docs/AWS_STAGING_CHECKLIST.md`, `docs/CI_CD.md`
 — see their individual diffs this same day).
 
-## 0. Updates — SNS confirmed, permission gap fixed, DR/IR sprint completed
+## 0. Updates — SNS confirmed, permission gap fixed, DR/IR sprint completed, RBAC hardening completed
 
 **This section contains dated addenda to the original 2026-08-20 audit.** Everything below it (§§1–13) is
 preserved exactly as written during the original audit earlier on 2026-08-20. This section documents
 resolutions made after the audit's initial findings.
+
+### RBAC hardening: a second, more serious permission finding, fixed (2026-08-24)
+
+A follow-up authorization audit (see `docs/ARCHITECTURE_DECISIONS.md`, `docs/SECURITY_HARDENING.md`) went
+beyond the `IsAuthenticated | IsPropertyManager` gap this review originally flagged, and found a **more
+serious, previously-undocumented privilege-escalation path**: `AdminUserViewSet` (full user-account
+management) required only `IsPropertyManager`, and its update path has a writable `password` field —
+meaning any Property Manager could reset any user's password, including a superuser's, and log in as that
+account. This was live in production, independent of the original permission-gap finding.
+
+**Fixed**: `AdminUserViewSet` now requires Super Admin (`CanManageUsers`). A formal 3-role RBAC matrix
+(Super Administrator / Property Manager / Staff) was documented, named per-capability permission classes
+replaced raw role checks throughout, and a real regression (the Dashboard's core stats endpoint
+accidentally swept into a Property-Manager-only gate) was caught and fixed in the same pass. Property-level
+scoping was investigated and found to require new data modeling that doesn't currently exist — documented
+as a known limitation rather than built speculatively, consistent with this review's original scope
+discipline ("no redesign," "smallest safe change"). Full backend suite: 281/281. Frontend: 52/52, lint and
+build clean.
+
+**This closes a real security gap this review's original pass did not know to look for.** The original
+verdict (§13) is unaffected in its conclusions about the items it did assess, but this addendum records
+that the permission surface was more thoroughly audited on 2026-08-24 than on 2026-08-20, and the deeper
+audit found something the shallower one missed — worth remembering as a reason to periodically re-audit
+authorization surfaces, not just fix what's already been flagged.
 
 ### SNS subscription confirmed (2026-08-20, later the same day)
 

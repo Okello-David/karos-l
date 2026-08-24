@@ -57,3 +57,46 @@ class HasGroupPermission(BasePermission):
             return True
         user_groups = request.user.groups.values_list("name", flat=True)
         return bool(set(required_groups) & set(user_groups))
+
+
+# --- Named, per-capability permission classes -------------------------------
+#
+# Thin subclasses of the two checks above (IsPropertyManager / IsSuperAdmin) —
+# no new authorization logic. Their purpose is purely so each viewset's
+# `permission_classes` states what it actually requires ("can this user
+# record a payment?") instead of a generic role name repeated at every call
+# site. See docs/ARCHITECTURE_DECISIONS.md for the RBAC model these map to.
+
+class CanManageProperty(IsPropertyManager):
+    """Create/update/archive properties, sections, units, and pricing rules."""
+
+
+class CanManageOccupants(IsPropertyManager):
+    """Create/update/archive occupant records."""
+
+
+class CanManageOccupancy(IsPropertyManager):
+    """Assign/checkout occupancy records."""
+
+
+class CanRecordPayment(IsPropertyManager):
+    """Record payments."""
+
+
+class CanManageUsers(IsSuperAdmin):
+    """Create/update/deactivate user accounts and manage group membership.
+
+    Deliberately IsSuperAdmin, not IsPropertyManager: a Property Manager must
+    never be able to reach user-account management, since resetting another
+    account's password (a Property Manager CAN do everything else a
+    superuser-gated action would need) is an effective privilege-escalation
+    path if this is under-scoped.
+    """
+
+
+class CanViewAuditLog(IsSuperAdmin):
+    """View the audit trail."""
+
+
+class CanManageBackups(IsSuperAdmin):
+    """Create/restore backups and export data."""

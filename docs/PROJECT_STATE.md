@@ -1,5 +1,37 @@
 # Project State
 
+## RBAC hardening sprint (2026-08-24)
+
+Follow-up sprint on top of the same-day permission-gap fix (below) — a formal 3-role authorization model,
+requested as its own dedicated audit. Full record: `docs/ARCHITECTURE_DECISIONS.md` (4 dated decisions) and
+`docs/SECURITY_HARDENING.md` (endpoint-to-permission map, testing summary, known limitations).
+
+- **Critical finding and fix**: `AdminUserViewSet` (full user-account management, including password
+  resets) required only `IsPropertyManager`, not `IsSuperAdmin`. Because its update path has a writable
+  `password` field, this meant any Property Manager could reset any account's password — including a
+  superuser's — and log in as that account. A live privilege-escalation path, unrelated to the earlier
+  same-day permission-gap fix. Fixed: now requires `CanManageUsers` (`IsSuperAdmin`). See
+  `docs/ARCHITECTURE_DECISIONS.md` AD-002, `docs/BUG_QUEUE.md`.
+- **Formal RBAC matrix**: Super Administrator / Property Manager / Staff, documented against what the
+  codebase's existing primitives (superuser flag, "Property Manager" Django group) actually enforce — not
+  invented roles. Named, per-capability permission classes (`CanManageProperty`, `CanRecordPayment`, etc.,
+  in `backend/apps/core/permissions.py`) replace raw role-name references at every viewset call site.
+- **Property-level scoping**: confirmed no `User`↔`Property` data model exists — documented as a known
+  limitation rather than built this sprint (every Property Manager is org-wide trusted today; KarosL is
+  single-organization multi-property, not multi-tenant SaaS). Flagged as a future product decision if
+  delegated managers are ever needed. See `docs/ARCHITECTURE_DECISIONS.md` AD-003/AD-004.
+- **Real regression caught and fixed during this pass**: `OccupancyViewSet.summary` (the Dashboard's core
+  stats) had been accidentally swept into the Property-Manager-only gate during the earlier permission-gap
+  fix, which would have broken the landing page for every Staff-tier user. Split out to stay
+  `IsAuthenticated` via a per-action `get_permissions()` override.
+- **Testing**: new `AuthorizationMatrixTests` (`backend/apps/core/tests.py`) — cross-role coverage,
+  explicit elevation-prevention tests, and ID-substitution tests (a real object ID doesn't bypass a
+  permission check, including the AdminUserViewSet password-reset path specifically). Full backend suite:
+  **281/281**. Frontend: 52/52 tests, lint clean (pre-existing warnings only), build clean.
+- **Frontend permission alignment**: Administration's Users/Audit tabs, and the Occupants/Payments/
+  Administration/Backup nav items, hidden from users who can't access them — UX only, backend remains
+  authoritative. New `frontend/src/utils/permissions.js`.
+
 ## Disaster recovery & incident response sprint (2026-08-24)
 
 Full DR/IR pass, requested as its own dedicated sprint per `docs/RELEASE_PLAN.md`'s own recommendation

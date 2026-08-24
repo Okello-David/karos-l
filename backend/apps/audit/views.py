@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.exceptions import NotFoundError
-from apps.core.permissions import IsSuperAdmin
+from apps.core.permissions import CanViewAuditLog
 
 from .models import AuditLog
 from .serializers import AuditLogSerializer
@@ -12,7 +12,7 @@ from .services import AuditService
 
 
 class AuditLogListView(APIView):
-    permission_classes = [IsAuthenticated & IsSuperAdmin]
+    permission_classes = [IsAuthenticated & CanViewAuditLog]
 
     def get(self, request):
         params = request.query_params
@@ -32,7 +32,7 @@ class AuditLogListView(APIView):
 
 
 class AuditLogDetailView(APIView):
-    permission_classes = [IsAuthenticated & IsSuperAdmin]
+    permission_classes = [IsAuthenticated & CanViewAuditLog]
 
     def get(self, request, pk):
         try:
@@ -45,7 +45,7 @@ class AuditLogDetailView(APIView):
 
 
 class AuditEntityTypesView(APIView):
-    permission_classes = [IsAuthenticated & IsSuperAdmin]
+    permission_classes = [IsAuthenticated & CanViewAuditLog]
 
     def get(self, request):
         choices = [{"value": v, "label": l} for v, l in AuditLog.EntityType.choices]
@@ -53,7 +53,7 @@ class AuditEntityTypesView(APIView):
 
 
 class AuditActionsView(APIView):
-    permission_classes = [IsAuthenticated & IsSuperAdmin]
+    permission_classes = [IsAuthenticated & CanViewAuditLog]
 
     def get(self, request):
         choices = [{"value": v, "label": l} for v, l in AuditLog.Action.choices]

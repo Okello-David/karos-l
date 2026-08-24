@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { authService } from '../services/auth'
+import { isSuperAdmin, canManageBusinessData } from '../utils/permissions'
 
 function HomeIcon({ className }) {
   return (
@@ -74,20 +75,29 @@ function ReceiptIcon({ className }) {
   )
 }
 
+// Occupants/Payments/Administration require Property Manager for every action on
+// those viewsets, including reads — not just writes (see docs/ARCHITECTURE_DECISIONS.md).
+// Backup requires Super Admin. Hidden from users who can't access them at all, rather
+// than shown and erroring on click.
 const navigation = [
   { name: 'Overview', href: '/', icon: HomeIcon },
   { name: 'Explorer', href: '/explorer', icon: MapIcon },
   { name: 'Properties', href: '/properties', icon: BuildingIcon },
-  { name: 'Occupants', href: '/occupants', icon: PeopleIcon },
-  { name: 'Payments', href: '/payments', icon: CurrencyIcon },
+  { name: 'Occupants', href: '/occupants', icon: PeopleIcon, requires: 'propertyManager' },
+  { name: 'Payments', href: '/payments', icon: CurrencyIcon, requires: 'propertyManager' },
   { name: 'Receipts', href: '/receipts', icon: ReceiptIcon },
   { name: 'Reports', href: '/reports', icon: ChartIcon },
-  { name: 'Backup', href: '/backup', icon: BackupIcon },
-  { name: 'Administration', href: '/administration', icon: CogIcon },
+  { name: 'Backup', href: '/backup', icon: BackupIcon, requires: 'superAdmin' },
+  { name: 'Administration', href: '/administration', icon: CogIcon, requires: 'propertyManager' },
 ]
 
 export default function Sidebar({ open, onClose }) {
   const user = authService.getUser()
+  const visibleNavigation = navigation.filter(({ requires }) => {
+    if (requires === 'superAdmin') return isSuperAdmin(user)
+    if (requires === 'propertyManager') return canManageBusinessData(user)
+    return true
+  })
   const initials = user
     ? (user.first_name?.[0] || user.username?.[0] || '?').toUpperCase()
     : '?'
@@ -126,7 +136,7 @@ export default function Sidebar({ open, onClose }) {
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto" data-tour="sidebar">
-          {navigation.map(({ name, href, icon: Icon }) => {
+          {visibleNavigation.map(({ name, href, icon: Icon }) => {
             const isExplorer = href === '/explorer'
             return (
               <NavLink

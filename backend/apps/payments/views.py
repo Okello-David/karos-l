@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from apps.audit.models import AuditLog
 from apps.audit.services import AuditService
 from apps.core.exceptions import ConflictError, NotFoundError
-from apps.core.permissions import IsPropertyManager
+from apps.core.permissions import CanRecordPayment
 
 from .serializers import PaymentSerializer, ReceiptSerializer
 from .services import PaymentService
@@ -27,7 +27,7 @@ def _get_payment_or_error(pk):
 
 
 class PaymentViewSet(viewsets.ViewSet):
-    permission_classes = [IsPropertyManager]
+    permission_classes = [CanRecordPayment]
 
     def list(self, request):
         page = int(request.query_params.get("page", 1))

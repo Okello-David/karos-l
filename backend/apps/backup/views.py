@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from apps.audit.models import AuditLog
 from apps.audit.services import AuditService
 from apps.core.exceptions import ConflictError, NotFoundError
-from apps.core.permissions import IsSuperAdmin
+from apps.core.permissions import CanManageBackups
 
 from .models import Backup
 from .serializers import BackupDetailSerializer, BackupListSerializer, RestoreSerializer
@@ -29,7 +29,7 @@ def _handle_exceptions(fn):
 
 
 class BackupListCreateView(APIView):
-    permission_classes = [IsAuthenticated & IsSuperAdmin]
+    permission_classes = [IsAuthenticated & CanManageBackups]
 
     def get(self, request):
         page = int(request.query_params.get("page", 1))
@@ -56,7 +56,7 @@ class BackupListCreateView(APIView):
 
 
 class BackupDetailView(APIView):
-    permission_classes = [IsAuthenticated & IsSuperAdmin]
+    permission_classes = [IsAuthenticated & CanManageBackups]
 
     @_handle_exceptions
     def get(self, request, pk):
@@ -66,7 +66,7 @@ class BackupDetailView(APIView):
 
 
 class BackupRestoreView(APIView):
-    permission_classes = [IsAuthenticated & IsSuperAdmin]
+    permission_classes = [IsAuthenticated & CanManageBackups]
 
     @_handle_exceptions
     def post(self, request, pk):
@@ -92,7 +92,7 @@ class BackupRestoreView(APIView):
 
 
 class BackupValidateView(APIView):
-    permission_classes = [IsAuthenticated & IsSuperAdmin]
+    permission_classes = [IsAuthenticated & CanManageBackups]
 
     @_handle_exceptions
     def get(self, request, pk):
@@ -105,7 +105,7 @@ class BackupValidateView(APIView):
 
 
 class ExportView(APIView):
-    permission_classes = [IsAuthenticated & IsSuperAdmin]
+    permission_classes = [IsAuthenticated & CanManageBackups]
 
     def get(self, request):
         entity = request.query_params.get("entity")

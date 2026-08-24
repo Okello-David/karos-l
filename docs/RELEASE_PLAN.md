@@ -1,5 +1,36 @@
 # Release Plan
 
+## RBAC hardening sprint — 2026-08-24
+
+Follow-up authorization audit on top of the same-day permission-gap fix below — full record:
+`docs/ARCHITECTURE_DECISIONS.md`, `docs/SECURITY_HARDENING.md`.
+
+**Critical finding: `AdminUserViewSet` allowed any Property Manager to reset any user's password —
+including a superuser's — via `PATCH /api/admin/users/<id>/`, then log in as that account.** A live
+privilege-escalation path, unrelated to the earlier `IsAuthenticated | IsPropertyManager` no-op gap. Fixed:
+now requires Super Admin (`CanManageUsers`).
+
+Also delivered: a formal 3-role RBAC matrix (Super Administrator / Property Manager / Staff) reflecting what
+the codebase's existing primitives actually enforce; named per-capability permission classes replacing raw
+role checks at every call site; a real regression catch-and-fix (the Dashboard's core stats endpoint had
+been accidentally swept into a Property-Manager-only gate, which would have broken the landing page for
+Staff-tier users); and expanded cross-role/elevation-prevention/ID-substitution test coverage (full backend
+suite 281/281, frontend 52/52).
+
+**Property-level scoping was investigated and deliberately not built** — no `User`↔`Property` data model
+exists, and building one is a substantial new architecture piece the sprint's own scope explicitly warned
+against inventing speculatively. Documented as a known limitation and a future product decision, not a gap
+that was overlooked.
+
+### Recommendation for the next sprint
+The permission/authorization surface is now in a solid state: the critical escalation path is closed, the
+role model is documented, and regression coverage exists. Remaining open items are the disaster-recovery
+sprint's own next-sprint recommendation (backup-silent-stop monitoring, secrets into Secrets Manager/SSM,
+RDS-specific CloudWatch alarms, retiring the stale `EC2_DEPLOY_KEY`) — unrelated to authorization and
+already prioritized in that sprint's record below. If per-property manager delegation ever becomes an
+actual product requirement (not hypothetical), that's the next authorization-specific piece of work, and it
+needs a product decision on the desired model before any data modeling begins.
+
 ## Disaster recovery & incident response sprint — 2026-08-24
 
 Full record: `docs/DISASTER_RECOVERY.md` + `docs/runbooks/`. This was this plan's own standing

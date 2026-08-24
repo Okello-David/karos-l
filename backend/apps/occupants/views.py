@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from apps.audit.models import AuditLog
 from apps.audit.services import AuditService
 from apps.core.exceptions import NotFoundError
-from apps.core.permissions import IsPropertyManager
+from apps.core.permissions import CanManageOccupants
 
 from .serializers import StudentSerializer
 from .services import StudentService
@@ -21,7 +21,7 @@ def _get_student_or_error(pk):
 
 
 class StudentViewSet(viewsets.ViewSet):
-    permission_classes = [IsPropertyManager]
+    permission_classes = [CanManageOccupants]
 
     def list(self, request):
         page = int(request.query_params.get("page", 1))

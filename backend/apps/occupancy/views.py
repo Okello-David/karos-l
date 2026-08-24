@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from apps.audit.models import AuditLog
 from apps.audit.services import AuditService
 from apps.core.exceptions import ConflictError, NotFoundError
-from apps.core.permissions import IsPropertyManager
+from apps.core.permissions import CanManageOccupancy
 from apps.properties.models import Property
 from apps.occupants.models import Student
 from apps.units.models import Unit
@@ -26,7 +26,17 @@ def _get_occupancy_or_error(pk):
 
 
 class OccupancyViewSet(viewsets.ViewSet):
-    permission_classes = [IsPropertyManager]
+    permission_classes = [CanManageOccupancy]
+
+    def get_permissions(self):
+        # `summary` is read-only aggregate data (counts, occupancy rate, property
+        # breakdown) that the Dashboard/Overview page depends on for every
+        # authenticated user, not just Property Managers — it carries no
+        # per-occupant detail. Every other action here creates/modifies
+        # occupancy records and stays Property-Manager-and-above only.
+        if self.action == "summary":
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     def list(self, request):
         page = int(request.query_params.get("page", 1))

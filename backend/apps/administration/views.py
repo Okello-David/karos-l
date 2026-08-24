@@ -7,7 +7,7 @@ from apps.accounts.models import User
 from apps.audit.models import AuditLog
 from apps.audit.services import AuditService
 from apps.core.exceptions import ConflictError, NotFoundError
-from apps.core.permissions import IsPropertyManager
+from apps.core.permissions import CanManageProperty, CanManageUsers
 from apps.properties.models import Property
 from apps.sections.models import Section
 from apps.units.models import PricingRule, Unit
@@ -38,7 +38,7 @@ def _handle_exceptions(fn):
 
 
 class AdminPropertyViewSet(viewsets.ViewSet):
-    permission_classes = [IsPropertyManager]
+    permission_classes = [CanManageProperty]
 
     def list(self, request):
         properties = AdminService.list_properties()
@@ -112,7 +112,7 @@ class AdminPropertyViewSet(viewsets.ViewSet):
 
 
 class AdminSectionViewSet(viewsets.ViewSet):
-    permission_classes = [IsPropertyManager]
+    permission_classes = [CanManageProperty]
 
     def list(self, request):
         property_id = request.query_params.get("property_id")
@@ -203,7 +203,7 @@ class AdminSectionViewSet(viewsets.ViewSet):
 
 
 class AdminUnitViewSet(viewsets.ViewSet):
-    permission_classes = [IsPropertyManager]
+    permission_classes = [CanManageProperty]
 
     def list(self, request):
         section_id = request.query_params.get("section_id")
@@ -281,7 +281,7 @@ class AdminUnitViewSet(viewsets.ViewSet):
 
 
 class PricingRuleViewSet(viewsets.ViewSet):
-    permission_classes = [IsPropertyManager]
+    permission_classes = [CanManageProperty]
 
     def list(self, request):
         unit_id = request.query_params.get("unit_id")
@@ -359,7 +359,7 @@ class PricingRuleViewSet(viewsets.ViewSet):
 
 
 class AdminUserViewSet(viewsets.ViewSet):
-    permission_classes = [IsPropertyManager]
+    permission_classes = [CanManageUsers]
 
     def list(self, request):
         users = AdminService.list_users()

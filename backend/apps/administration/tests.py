@@ -26,6 +26,13 @@ class AdminAPITests(TestCase):
         self.token = Token.objects.create(user=self.user)
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
 
+        self.superuser = User.objects.create_superuser(
+            username="superadmin", email="super@example.com", password="pass123"
+        )
+        self.super_token = Token.objects.create(user=self.superuser)
+        self.super_client = APIClient()
+        self.super_client.credentials(HTTP_AUTHORIZATION=f"Token {self.super_token.key}")
+
         self.prop = Property.objects.create(
             name="Test Property", code="TST01", address="123 Main St"
         )
@@ -361,15 +368,20 @@ class AdminAPITests(TestCase):
         self.assertEqual(PricingRule.objects.count(), 0)
 
     # ---- Users ----
+    #
+    # User management requires CanManageUsers (IsSuperAdmin), not IsPropertyManager — a
+    # Property Manager must never be able to reach account management, since resetting
+    # another account's password here is an effective privilege-escalation path. See
+    # docs/ARCHITECTURE_DECISIONS.md and docs/SECURITY_HARDENING.md.
 
     def test_list_users(self):
-        response = self.client.get(f"{self.admin_url}users/")
+        response = self.super_client.get(f"{self.admin_url}users/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
 
     def test_list_groups(self):
         Group.objects.get_or_create(name="Custom Role")
-        response = self.client.get(f"{self.admin_url}users/groups/")
+        response = self.super_client.get(f"{self.admin_url}users/groups/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
 
@@ -380,7 +392,7 @@ class AdminAPITests(TestCase):
             "password": "secret123",
             "is_staff": True,
         }
-        response = self.client.post(f"{self.admin_url}users/", data, format="json")
+        response = self.super_client.post(f"{self.admin_url}users/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["username"], "newuser")
         self.assertTrue(response.data["is_staff"])
@@ -391,7 +403,7 @@ class AdminAPITests(TestCase):
             "password": "secret123",
             "groups": [self.manager_group.id],
         }
-        response = self.client.post(f"{self.admin_url}users/", data, format="json")
+        response = self.super_client.post(f"{self.admin_url}users/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         created = User.objects.get(username="manager2")
         self.assertTrue(created.groups.filter(id=self.manager_group.id).exists())
@@ -402,7 +414,7 @@ class AdminAPITests(TestCase):
             "password": "secret123",
             "is_superuser": True,
         }
-        response = self.client.post(f"{self.admin_url}users/", data, format="json")
+        response = self.super_client.post(f"{self.admin_url}users/", data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         created = User.objects.get(username="not-super")
         self.assertFalse(created.is_superuser)
@@ -414,7 +426,7 @@ class AdminAPITests(TestCase):
             "email": "edit@example.com",
             "groups": [self.manager_group.id],
         }
-        response = self.client.put(
+        response = self.super_client.put(
             f"{self.admin_url}users/{user2.id}/", data, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -426,7 +438,7 @@ class AdminAPITests(TestCase):
             username="testuser", password="pass123"
         )
         self.assertTrue(user2.is_active)
-        response = self.client.post(
+        response = self.super_client.post(
             f"{self.admin_url}users/{user2.id}/toggle-active/"
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -437,3 +449,44 @@ class AdminAPITests(TestCase):
         self.client.credentials()
         response = self.client.get(f"{self.admin_url}users/")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    # ---- Regression: Property Manager must not reach user management ----
+    #
+    # This is the regression test for the privilege-escalation path found and fixed this
+    # sprint: AdminUserViewSet previously required only IsPropertyManager, and its update
+    # serializer has a writable `password` field — a Property Manager could reset any
+    # user's password, including a superuser's, then log in as that account.
+
+    def test_users_property_manager_forbidden_list(self):
+        response = self.client.get(f"{self.admin_url}users/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_users_property_manager_forbidden_create(self):
+        data = {"username": "shouldnotexist", "password": "secret123"}
+        response = self.client.post(f"{self.admin_url}users/", data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(User.objects.filter(username="shouldnotexist").exists())
+
+    def test_users_property_manager_forbidden_password_reset(self):
+        """The specific escalation path: a Property Manager must not be able to reset
+        another account's (including a superuser's) password via the admin users API."""
+        original_password_hash = self.superuser.password
+        response = self.client.patch(
+            f"{self.admin_url}users/{self.superuser.id}/",
+            {"password": "attacker-controlled-password"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.superuser.refresh_from_db()
+        self.assertEqual(self.superuser.password, original_password_hash)
+
+    def test_users_property_manager_forbidden_toggle_active(self):
+        user2 = User.objects.create_user(username="testuser2", password="pass123")
+        response = self.client.post(f"{self.admin_url}users/{user2.id}/toggle-active/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        user2.refresh_from_db()
+        self.assertTrue(user2.is_active)
+
+    def test_users_property_manager_forbidden_groups(self):
+        response = self.client.get(f"{self.admin_url}users/groups/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

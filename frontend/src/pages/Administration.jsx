@@ -14,14 +14,19 @@ import {
 import { adminService } from '../services/admin'
 import { useAuditLogs, useAuditMeta } from '../hooks/useAudit'
 import { formatUGX } from '../utils/format'
+import { authService } from '../services/auth'
+import { isSuperAdmin } from '../utils/permissions'
 
 const tabs = [
   { id: 'properties', label: 'Properties' },
   { id: 'sections', label: 'Sections' },
   { id: 'units', label: 'Units' },
   { id: 'pricing', label: 'Pricing' },
-  { id: 'users', label: 'Users' },
-  { id: 'audit', label: 'Audit Log' },
+  // Users and Audit Log require Super Admin on the backend (CanManageUsers /
+  // CanViewAuditLog) — hidden here so a Property Manager never sees a tab
+  // that only errors when used. superAdminOnly filtered in the component.
+  { id: 'users', label: 'Users', superAdminOnly: true },
+  { id: 'audit', label: 'Audit Log', superAdminOnly: true },
 ]
 
 function AdminFormDialog({ open, title, fields, data, onSave, onClose }) {
@@ -1041,6 +1046,8 @@ const tabComponents = {
 
 export default function Administration() {
   const [activeTab, setActiveTab] = useState('properties')
+  const user = authService.getUser()
+  const visibleTabs = isSuperAdmin(user) ? tabs : tabs.filter((tab) => !tab.superAdminOnly)
   const TabComponent = tabComponents[activeTab]
 
   return (
@@ -1050,7 +1057,7 @@ export default function Administration() {
     >
       <div className="border-b border-gray-200 overflow-x-auto">
         <nav className="flex gap-6 -mb-px" role="tablist">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab.id}
               role="tab"
